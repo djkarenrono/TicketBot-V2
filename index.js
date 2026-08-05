@@ -265,7 +265,6 @@ client.on('interactionCreate', async (interaction) => {
         const factionName = interaction.customId.replace('storyform_', '');
         const storyTitle = interaction.fields.getTextInputValue('story_title');
         const storyLore = interaction.fields.getTextInputValue('story_lore');
-        const factionPhoto = interaction.fields.getTextInputValue('story_photo').trim();
         const recruitStatus = interaction.fields.getTextInputValue('story_recruit').toUpperCase().trim();
 
         // Map status strings directly to human-friendly visualization text badges
@@ -290,33 +289,21 @@ client.on('interactionCreate', async (interaction) => {
             const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
             const appliedTags = targetTag ? [targetTag.id] : [];
 
-            // 🌟 CLEAN CONTENT LAYOUT: Standard text block completely free of raw link strings
+            // 🌟 CLEAN TEXT CONTENT LAYOUT: Zero image references to ensure no broken/corrupted media frames can ever render
             const postContent = 
                 `## 📜 ${storyTitle}\n\n` +
                 `**Faction Name:** ${factionName}\n` +
                 `**Published By:** <@${interaction.user.id}>\n` +
                 `**Status:** ${statusEmojiText}\n\n` +
                 `### 📖 Faction History & Lore:\n${storyLore}\n\n` +
-                `🚨 **Interested in joining our ranks?**\n` +
+                `🚨 **Interested?**\n` +
                 `Head over straight to the <#1534350906576076841> channel to select our group and log your enlisting details officially!`;
-
-            // 🌟 THE ULTIMATE BYPASS FIX: Put the image inside an invisible embed card template.
-            // This hides text paths and suppresses album header wrappers automatically.
-            const messagePayload = { content: postContent };
-
-            if (factionPhoto.startsWith('http://') || factionPhoto.startsWith('https://')) {
-                const cleanImageEmbed = new EmbedBuilder()
-                    .setImage(factionPhoto)
-                    .setColor(0xD35400); // Optional: Match the layout theme color
-                
-                messagePayload.embeds = [cleanImageEmbed];
-            }
 
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
-                message: messagePayload,
+                message: { content: postContent },
                 appliedTags: appliedTags,
-                reason: `Automated Template Sandbox Media Core Correction Link Bypass`
+                reason: `Automated Chronicle Entry Text Content Master Fix`
             });
 
             await interaction.editReply({ content: `🎉 **Success!** Your Faction Origin Story has been published safely to the Forum! View here: ${forumPostThread}` });
