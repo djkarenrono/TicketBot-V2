@@ -276,7 +276,7 @@ client.on('interactionCreate', async (interaction) => {
             statusTagLabel = 'closed';
             statusEmojiText = '🔴 **CLOSED TO APPLICANTS**';
         } else if (recruitStatus === 'INVITATION') {
-            statusTagLabel = 'invitations only'; // Match this name exactly to your custom Discord forum tag bubble string
+            statusTagLabel = 'invitations only'; // Matches this name exactly to your custom Discord forum tag bubble string
             statusEmojiText = '🟡 **INVITATIONS ONLY**';
         }
 
@@ -290,27 +290,27 @@ client.on('interactionCreate', async (interaction) => {
             const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
             const appliedTags = targetTag ? [targetTag.id] : [];
 
+            // 🌟 CLEAN LAYOUT: Remapped without any Faction Showcase headline text markers
             let postContent = 
                 `## 📜 ${storyTitle}\n\n` +
                 `**Faction Name:** ${factionName}\n` +
                 `**Published By:** <@${interaction.user.id}>\n` +
                 `**Status:** ${statusEmojiText}\n\n` +
-                `### 📖 Faction History & Lore:\n${storyLore}\n\n`;
+                `### 📖 Faction History & Lore:\n${storyLore}\n\n` +
+                `🚨 **Interested?**\n` +
+                `Head over straight to the <#1534350906576076841> channel to select our group and log your enlisting details officially!\n\n`;
 
-            // If a valid image layout link was provided by the group leader, append it directly into the rich text block flow
+            // 🌟 IMAGE HOOK BYPASS: Appends the link silently inside a trailing bracket space.
+            // This forces Discord to render the picture window without generating "Untitled Album" text link cards.
             if (factionPhoto.startsWith('http://') || factionPhoto.startsWith('https://')) {
-                postContent += `### 🖼️ Faction Showcase:\n${factionPhoto}\n\n`;
+                postContent += `[\u200b](${factionPhoto})`;
             }
-
-            postContent += 
-                `🚨 **Interested in joining our ranks?**\n` +
-                `If you want to survive with us, do not message our members here! Head over straight to the <#1534277229083885698> application channel to select our group from the menu drop-down block and log your enlisting details officially!`;
 
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
                 message: { content: postContent },
                 appliedTags: appliedTags,
-                reason: `Automated Chronicle Entry with Custom Image Banner`
+                reason: `Automated Chronicle Entry with Clean Silent Preview Card`
             });
 
             await interaction.editReply({ content: `🎉 **Success!** Your Faction Origin Story has been published safely to the Forum! View here: ${forumPostThread}` });
