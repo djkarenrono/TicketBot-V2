@@ -286,7 +286,7 @@ client.on('interactionCreate', async (interaction) => {
             const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
             const appliedTags = targetTag ? [targetTag.id] : [];
             
-            const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${statusEmojiText}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested?**\nHead over straight to the <#1534350906576076841> channel to select our faction and log your enlisting details officially!`;
+            const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${statusEmojiText}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested in joining our ranks?**\nIf you want to survive with us, head over straight to the <#1534277229083885698> application channel to select our group from the menu dropdown block and log your enlisting details officially!`;
             
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
@@ -305,22 +305,41 @@ client.on('interactionCreate', async (interaction) => {
                     {
                         id: interaction.guild.roles.everyone.id,
                         allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
-                        deny: [PermissionFlagsBits.SendMessages] // Keeps the forum read-only for public server lookers
+                        deny: [PermissionFlagsBits.SendMessages, PermissionFlagsBits.AttachFiles] // Keeps the forum read-only for public server lookers
                     },
                     {
-                        // Grants full message modifications and management permissions to your Server Staff
+                        // Grants full message modifications, chat, and attachment management permissions to your Server Staff
                         id: CONFIG.FACTION_STAFF_ROLE_ID,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ManageThreads, PermissionFlagsBits.ReadMessageHistory]
+                        allow: [
+                            PermissionFlagsBits.ViewChannel, 
+                            PermissionFlagsBits.SendMessages, 
+                            PermissionFlagsBits.ManageMessages, 
+                            PermissionFlagsBits.ManageThreads, 
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.AttachFiles
+                        ]
                     },
                     ...(associatedLeaderRole ? [{
-                        // Grants direct content editing and moderation privileges to the faction's leader role profile
+                        // 🌟 THE FIX: Grants direct message sending, content editing, and file upload attachments to the faction's leader role profile
                         id: associatedLeaderRole.id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory]
+                        allow: [
+                            PermissionFlagsBits.ViewChannel, 
+                            PermissionFlagsBits.SendMessages, 
+                            PermissionFlagsBits.ManageMessages, 
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.AttachFiles
+                        ]
                     }] : []),
                     {
-                        // Absolute fallback lock: Ensures the specific user account who posted retains active profile modification keys
+                        // Absolute fallback lock: Ensures the specific user account who posted retains active profile modification keys and upload privileges
                         id: interaction.user.id,
-                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory]
+                        allow: [
+                            PermissionFlagsBits.ViewChannel, 
+                            PermissionFlagsBits.SendMessages, 
+                            PermissionFlagsBits.ManageMessages, 
+                            PermissionFlagsBits.ReadMessageHistory,
+                            PermissionFlagsBits.AttachFiles
+                        ]
                     }
                 ], `Editorial Access Provision for ${factionName} Chronicles Management`);
 
