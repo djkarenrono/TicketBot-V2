@@ -212,56 +212,111 @@ client.on('interactionCreate', async (interaction) => {
     }
     // --- E. SETUP ORIGIN STORIES SLASH COMMAND ---
     if (interaction.isChatInputCommand() && interaction.commandName === 'setup-origin-stories') {
-        const row = new ActionRowBuilder().addComponents(new ButtonBuilder().setCustomId('open_story_modal').setLabel('📜 Publish Faction Origin').setStyle(ButtonStyle.Success));
-        const embed = new EmbedBuilder().setTitle('📖 Faction Chronicles & Origin Stories').setDescription('Attention **Faction Leaders**!\n\nUse this hub terminal to officially publish or update your faction\'s background history, lore, and current status.\n\n🛡️ **Restriction Note:** This submission portal performs an automated profile analysis. Only verified Faction Leaders holding a registered Faction Leader_[Name] role can successfully access the publishing form.').setColor(0xD35400);
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId('open_story_modal').setLabel('📜 Publish Faction Origin').setStyle(ButtonStyle.Success)
+        );
+
+        const embed = new EmbedBuilder()
+            .setTitle('📖 Faction Chronicles & Origin Stories')
+            .setDescription(
+                `Attention **Faction Leaders**!\n\n` +
+                `Use this hub terminal to officially publish or update your faction's background history, lore, custom media, and current status.\n\n` +
+                `🛡️ **Restriction Note:** This submission portal performs an automated profile analysis. Only verified Faction Leaders holding a registered \`Faction Leader_[Name]\` role can successfully access the publishing form.`
+            )
+            .setColor(0xD35400);
+
         await interaction.reply({ embeds: [embed], components: [row] });
         return;
     }
+
     // --- F. VERIFY ROLE AND DISPATCH STORY MODAL ---
     if (interaction.isButton() && interaction.customId === 'open_story_modal') {
         const leaderRoleObject = interaction.member.roles.cache.find(role => role.name.startsWith('Faction Leader_'));
         if (!leaderRoleObject) {
-            return interaction.reply({ content: '❌ Access Denied: Only verified Faction Leaders holding an active Faction Leader_[FactionName] role can use this form.', ephemeral: true });
+            return interaction.reply({ content: '❌ **Access Denied:** Only verified Faction Leaders holding an active `Faction Leader_[FactionName]` role can use this form.', ephemeral: true });
         }
+
         const extractedFactionName = leaderRoleObject.name.replace('Faction Leader_', '');
         const modal = new ModalBuilder().setCustomId(`storyform_${extractedFactionName}`).setTitle('Faction Origin & Recruitment Form');
+
         const titleInput = new TextInputBuilder().setCustomId('story_title').setLabel('Story Title / Post Headline').setStyle(TextInputStyle.Short).setPlaceholder('The Rise of...').setRequired(true);
         const loreInput = new TextInputBuilder().setCustomId('story_lore').setLabel('Faction History, Lore & Background').setStyle(TextInputStyle.Paragraph).setPlaceholder('Write your faction story here...').setRequired(true);
-        const recruitInput = new TextInputBuilder().setCustomId('story_recruit').setLabel('Are you open for recruitment? (YES / NO)').setStyle(TextInputStyle.Short).setMaxLength(3).setValue('YES').setRequired(true);
-        modal.addComponents(new ActionRowBuilder().addComponents(titleInput), new ActionRowBuilder().addComponents(loreInput), new ActionRowBuilder().addComponents(recruitInput));
+        
+        // 📸 PHOTO LINK ENTRY
+        const photoInput = new TextInputBuilder().setCustomId('story_photo').setLabel('Faction Banner / Photo URL').setStyle(TextInputStyle.Short).setPlaceholder('https://imgur.com... (Leave blank if none)').setRequired(false);
+        
+        // 🏷️ THREE-WAY RECRUITMENT STATUS SELECTOR FIELD
+        const recruitInput = new TextInputBuilder().setCustomId('story_recruit').setLabel('Status (OPEN / CLOSED / INVITATION)').setStyle(TextInputStyle.Short).setMaxLength(10).setValue('OPEN').setPlaceholder('Type: OPEN, CLOSED, or INVITATION').setRequired(true);
+
+        modal.addComponents(
+            new ActionRowBuilder().addComponents(titleInput),
+            new ActionRowBuilder().addComponents(loreInput),
+            new ActionRowBuilder().addComponents(photoInput),
+            new ActionRowBuilder().addComponents(recruitInput)
+        );
+
         return interaction.showModal(modal).catch(console.error);
     }
+
     // --- G. PROCESS STORY FORM SUBMISSION & FORUM PUBLISH ---
     if (interaction.type === InteractionType.ModalSubmit && interaction.customId.startsWith('storyform_')) {
         await interaction.deferReply({ ephemeral: true });
+
         const factionName = interaction.customId.replace('storyform_', '');
         const storyTitle = interaction.fields.getTextInputValue('story_title');
         const storyLore = interaction.fields.getTextInputValue('story_lore');
+        const factionPhoto = interaction.fields.getTextInputValue('story_photo').trim();
         const recruitStatus = interaction.fields.getTextInputValue('story_recruit').toUpperCase().trim();
-        const isOpen = recruitStatus === 'YES';
+
+        // Map status strings directly to human-friendly visualization text badges
+        let statusTagLabel = 'open for recruitment';
+        let statusEmojiText = '🟢 **OPEN FOR RECRUITMENT**';
+
+        if (recruitStatus === 'CLOSED') {
+            statusTagLabel = 'closed';
+            statusEmojiText = '🔴 **CLOSED TO APPLICANTS**';
+        } else if (recruitStatus === 'INVITATION') {
+            statusTagLabel = 'invitations only'; // Match this name exactly to your custom Discord forum tag bubble string
+            statusEmojiText = '🟡 **INVITATIONS ONLY**';
+        }
 
         try {
             const forumChannel = await interaction.guild.channels.fetch(CONFIG.FACTION_LIST_FORUM_ID).catch(() => null);
             if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
-                return interaction.editReply({ content: '❌ System Error: Target Forum configuration ID mismatch.' });
+                return interaction.editReply({ content: '❌ **System Error:** Could not locate a valid target Forum Channel. Verify your ID variables.' });
             }
 
-            const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === (isOpen ? 'open for recruitment' : 'closed')) || null;
+            // Dynamically scan for your three distinct tag structures in your forum channel settings
+            const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
             const appliedTags = targetTag ? [targetTag.id] : [];
 
-            const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${isOpen ? '🟢 **OPEN FOR RECRUITMENT**' : '🔴 **CLOSED TO APPLICANTS**'}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested in joining?**\nHead over straight to the <#1534350906576076841> channel to select our faction and log your enlisting details officially!;`;
+            let postContent = 
+                `## 📜 ${storyTitle}\n\n` +
+                `**Faction Name:** ${factionName}\n` +
+                `**Published By:** <@${interaction.user.id}>\n` +
+                `**Status:** ${statusEmojiText}\n\n` +
+                `### 📖 Faction History & Lore:\n${storyLore}\n\n`;
+
+            // If a valid image layout link was provided by the group leader, append it directly into the rich text block flow
+            if (factionPhoto.startsWith('http://') || factionPhoto.startsWith('https://')) {
+                postContent += `### 🖼️ Faction Showcase:\n${factionPhoto}\n\n`;
+            }
+
+            postContent += 
+                `🚨 **Interested in joining our ranks?**\n` +
+                `If you want to survive with us, do not message our members here! Head over straight to the <#1534277229083885698> application channel to select our group from the menu drop-down block and log your enlisting details officially!`;
 
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
                 message: { content: postContent },
                 appliedTags: appliedTags,
-                reason: 'Automated Chronicle Entry'
+                reason: `Automated Chronicle Entry with Custom Image Banner`
             });
 
             await interaction.editReply({ content: `🎉 **Success!** Your Faction Origin Story has been published safely to the Forum! View here: ${forumPostThread}` });
         } catch (err) {
             console.error(err);
-            await interaction.editReply({ content: '❌ System exception error while processing forum thread publishing.' });
+            await interaction.editReply({ content: '❌ System exception error while processing forum post publishing engines layout loops.' });
         }
         return;
     }
