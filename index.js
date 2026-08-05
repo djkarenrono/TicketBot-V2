@@ -286,7 +286,7 @@ client.on('interactionCreate', async (interaction) => {
             const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
             const appliedTags = targetTag ? [targetTag.id] : [];
             
-            const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${statusEmojiText}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested in joining our ranks?**\nIf you want to survive with us, head over straight to the <#1534277229083885698> application channel to select our group from the menu dropdown block and log your enlisting details officially!`;
+            const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${statusEmojiText}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested?**\nHead over straight to the <#1534350906576076841> channel to select our faction and log your enlisting details officially!`;
             
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
