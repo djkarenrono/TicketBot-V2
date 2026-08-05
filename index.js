@@ -432,73 +432,88 @@ client.on('interactionCreate', async (interaction) => {
         const val = interaction.values[0];
         if (val === 'none') return interaction.reply({ content: '❌ There are no active factions to join yet.', ephemeral: true });
 
+        // Extract parameters safely from selection menu values
         const parts = val.split('_');
         const tag = parts[1];
         const factionName = parts[2].replace(/-/g, ' ');
 
-        const modal = new ModalBuilder().setCustomId(`joinform_${tag}_${parts[2]}`).setTitle(`Apply to Join ${factionName}`);
+        // Open the dynamic user application form modal
+        const modal = new ModalBuilder().setCustomId(`joinform_${tag}_${parts[2]}`).setTitle(`Apply to ${factionName}`);
         const ignInput = new TextInputBuilder().setCustomId('join_ign').setLabel('Your In-Game Survivor Name').setStyle(TextInputStyle.Short).setRequired(true);
         const dcInput = new TextInputBuilder().setCustomId('join_discord').setLabel('Your Discord Username').setStyle(TextInputStyle.Short).setValue(interaction.user.username).setRequired(true);
         const reasonInput = new TextInputBuilder().setCustomId('join_reason').setLabel('Why do you want to join us?').setStyle(TextInputStyle.Paragraph).setRequired(true);
 
         modal.addComponents(
-            new ActionRowBuilder().addComponents(ignInput),
-            new ActionRowBuilder().addComponents(dcInput),
+            new ActionRowBuilder().addComponents(ignInput), 
+            new ActionRowBuilder().addComponents(dcInput), 
             new ActionRowBuilder().addComponents(reasonInput)
         );
-
         await interaction.showModal(modal);
         return;
     }
+
     // --- L. HANDLE COMPLETED RECRUITMENT FORM SUBMISSION ---
     if (interaction.type === InteractionType.ModalSubmit && interaction.customId.startsWith('joinform_')) {
         await interaction.deferReply({ ephemeral: true });
+
         const parts = interaction.customId.split('_');
         const tag = parts[1];
         const factionName = parts[2].replace(/-/g, ' ');
+
         const joinIgn = interaction.fields.getTextInputValue('join_ign');
         const joinDiscord = interaction.fields.getTextInputValue('join_discord');
         const joinReason = interaction.fields.getTextInputValue('join_reason');
 
         try {
             const guild = interaction.guild;
-            const member = interaction.user;
+            const applicantUser = interaction.user;
+
+            // Target the specific Faction Leader role for this selected group
             const targetLeaderRole = guild.roles.cache.find(r => r.name.toLowerCase() === `faction leader_${factionName.toLowerCase()}`);
             const leaderPing = targetLeaderRole ? `<@&${targetLeaderRole.id}>` : 'Faction Leaders';
-            const randomNumber = Math.floor(1000 + Math.random() * 9000);
 
+            const randomNumber = Math.floor(1000 + Math.random() * 9000);
+            
+            // Build a private isolation thread ticket inside your recruitment category workspace
             let joinTicket = await guild.channels.create({
                 name: `join-${tag.toLowerCase()}-${randomNumber}`,
                 type: ChannelType.GuildText,
                 parent: CONFIG.FACTION_JOIN_TICKETS_CATEGORY_ID || null,
                 permissionOverwrites: [
                     { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                    { id: member.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+                    { id: applicantUser.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] },
+                    // Secure Channel Access Isolation: Only the exact leader role can view this ticket
                     ...(targetLeaderRole ? [{ id: targetLeaderRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }] : [])
                 ]
             });
 
             const embed = new EmbedBuilder()
-                .setTitle(`👥 New Recruitment Request: ${factionName}`)
-                .setDescription(`In-Game Name: ${joinIgn}\nDiscord Username: ${joinDiscord}\n\nReason for Enlistment:\n${joinReason}`)
+                .setTitle(`👥 New Faction Application: ${factionName}`)
+                .setDescription(
+                    `A new survivor wants to join your ranks. Faction Leaders can review the details below:\n\n` +
+                    `🎮 **In-Game Name:** ${joinIgn}\n` +
+                    `💬 **Discord Username:** \`${joinDiscord}\`\n\n` +
+                    `📋 **Reason for Enlistment:**\n${joinReason}`
+                )
                 .setColor(0x3498DB)
                 .setTimestamp();
 
+            // Secure action buttons mapping the specific applicant ID and Faction Tag properties
             const actionRow = new ActionRowBuilder().addComponents(
-                new ButtonBuilder().setCustomId(`rec_approve_${member.id}_${tag}`).setLabel('✅ Accept Member').setStyle(ButtonStyle.Success),
-                new ButtonBuilder().setCustomId(`rec_reject_${member.id}`).setLabel('❌ Reject Applicant').setStyle(ButtonStyle.Danger)
+                new ButtonBuilder().setCustomId(`rec_approve_${applicantUser.id}_${tag}`).setLabel('✅ Accept Member').setStyle(ButtonStyle.Success),
+                new ButtonBuilder().setCustomId(`rec_reject_${applicantUser.id}_${tag}`).setLabel('❌ Reject Applicant').setStyle(ButtonStyle.Danger)
             );
 
             await joinTicket.send({
-                content: `🔔 **Attention ${leaderPing}:** A new membership request requires review.`,
+                content: `🔔 **Attention ${leaderPing}:** A new membership request requires your evaluation.`,
                 embeds: [embed],
                 components: [actionRow]
             });
 
-            await interaction.editReply({ content: `✅ **Application Submitted!** Ticket channel opened: ${joinTicket}` });
+            await interaction.editReply({ content: `✅ **Application Submitted!** Your private review ticket channel has been opened: ${joinTicket}` });
         } catch (err) {
             console.error(err);
-            await interaction.editReply({ content: '❌ Operational systems exception while creating your faction entry ticket.' });
+            await interaction.editReply({ content: '❌ System error processing your recruitment entry ticket layout.' });
         }
         return;
     }
@@ -506,28 +521,46 @@ client.on('interactionCreate', async (interaction) => {
     // --- M. HANDLE FACTION LEADER ADMISSION ACTION BUTTONS ---
     if (interaction.isButton() && interaction.customId.startsWith('rec_')) {
         const parts = interaction.customId.split('_');
-        const action = parts[1];
-        const targetUserId = parts[2];
-        const tag = parts[3];
+        const action = parts[1];        // 'approve' or 'reject'
+        const targetUserId = parts[2];  // Applicant User ID
+        const tag = parts[3];           // Faction Tag uppercase
+
+        // Secure Audit Check: Ensure the user clicking holds the required Leader Role or Administrator permission
+        const leaderRoleCheck = interaction.member.roles.cache.find(role => role.name.startsWith('Faction Leader_'));
+        const isServerAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        
+        if (!leaderRoleCheck && !isServerAdmin) {
+            return interaction.reply({ content: '❌ **Access Denied:** Only the designated Faction Leader or Server Staff can handle this application.', ephemeral: true });
+        }
+
         const teamRole = interaction.guild.roles.cache.find(r => r.name.toLowerCase() === `[${tag.toLowerCase()}] member`);
         const applicant = await interaction.guild.members.fetch(targetUserId).catch(() => null);
 
         if (action === 'approve') {
-            await interaction.reply({ content: '✅ Applicant Accepted! Giving faction membership roles...' });
-            if (applicant && teamRole) {
-                await applicant.roles.add(teamRole).catch(console.error);
-                await applicant.send(`🎉 **Great news!** Your application to join **[${tag}]** has been approved by the Faction Leader!`).catch(() => { });
+            await interaction.reply({ content: '⚙️ **Application Approved!** Enrolling survivor and setting up memberships...' });
+            
+            try {
+                if (applicant && teamRole) {
+                    // Automatically add the verified general membership role tag to the applicant profile
+                    await applicant.roles.add(teamRole);
+                    await applicant.send(`🎉 **Great news, Survivor!** Your application to enlist with **[${tag}]** has been officially approved by the Faction Leader! You now have access to your group's private workspace.`).catch(() => {});
+                }
+                
+                await interaction.editReply({ content: '✅ **Success!** Survivor role assigned. Closing workspace channel...' });
+                setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+            } catch (roleErr) {
+                console.error(roleErr);
+                await interaction.editReply({ content: '❌ **System Error:** Failed to grant role. Check bot hierarchy placement.' });
             }
-            setTimeout(() => interaction.channel.delete().catch(() => { }), 5000);
             return;
         }
 
         if (action === 'reject') {
-            await interaction.reply({ content: '❌ Applicant Rejected. Closing recruitment thread...' });
+            await interaction.reply({ content: '❌ **Applicant Rejected.** Cleaning up workspace thread...' });
             if (applicant) {
-                await applicant.send(`🛑 **Notice:** Your application request to enlist with **[${tag}]** has been declined.`).catch(() => { });
+                await applicant.send(`🛑 **Notice:** Your application request to enlist with the faction **[${tag}]** has been declined by their leadership.`).catch(() => {});
             }
-            setTimeout(() => interaction.channel.delete().catch(() => { }), 5000);
+            setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
             return;
         }
     }
