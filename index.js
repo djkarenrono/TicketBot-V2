@@ -290,27 +290,33 @@ client.on('interactionCreate', async (interaction) => {
             const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
             const appliedTags = targetTag ? [targetTag.id] : [];
 
-            // 🌟 CLEAN LAYOUT: Remapped without any Faction Showcase headline text markers
-            let postContent = 
+            // 🌟 CLEAN CONTENT LAYOUT: Standard text block completely free of raw link strings
+            const postContent = 
                 `## 📜 ${storyTitle}\n\n` +
                 `**Faction Name:** ${factionName}\n` +
                 `**Published By:** <@${interaction.user.id}>\n` +
                 `**Status:** ${statusEmojiText}\n\n` +
                 `### 📖 Faction History & Lore:\n${storyLore}\n\n` +
-                `🚨 **Interested?**\n` +
-                `Head over straight to the <#1534350906576076841> channel to select our group and log your enlisting details officially!\n\n`;
+                `🚨 **Interested in joining our ranks?**\n` +
+                `Head over straight to the <#1534350906576076841> channel to select our group and log your enlisting details officially!`;
 
-            // 🌟 IMAGE HOOK BYPASS: Appends the link silently inside a trailing bracket space.
-            // This forces Discord to render the picture window without generating "Untitled Album" text link cards.
+            // 🌟 THE ULTIMATE BYPASS FIX: Put the image inside an invisible embed card template.
+            // This hides text paths and suppresses album header wrappers automatically.
+            const messagePayload = { content: postContent };
+
             if (factionPhoto.startsWith('http://') || factionPhoto.startsWith('https://')) {
-                postContent += `[\u200b](${factionPhoto})`;
+                const cleanImageEmbed = new EmbedBuilder()
+                    .setImage(factionPhoto)
+                    .setColor(0xD35400); // Optional: Match the layout theme color
+                
+                messagePayload.embeds = [cleanImageEmbed];
             }
 
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
-                message: { content: postContent },
+                message: messagePayload,
                 appliedTags: appliedTags,
-                reason: `Automated Chronicle Entry with Clean Silent Preview Card`
+                reason: `Automated Template Sandbox Media Core Correction Link Bypass`
             });
 
             await interaction.editReply({ content: `🎉 **Success!** Your Faction Origin Story has been published safely to the Forum! View here: ${forumPostThread}` });
