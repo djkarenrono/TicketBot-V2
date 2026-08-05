@@ -303,8 +303,8 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             postContent += 
-                `🚨 **Interested in joining our ranks?**\n` +
-                `If you want to survive with us, do not message our members here! Head over straight to the <#1534277229083885698> application channel to select our group from the menu drop-down block and log your enlisting details officially!`;
+                `🚨 **Interested?**\n` +
+                `Head over straight to the <#1534350906576076841> channel to select our group and log your enlisting details officially!`;
 
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
