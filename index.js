@@ -242,21 +242,18 @@ client.on('interactionCreate', async (interaction) => {
         const titleInput = new TextInputBuilder().setCustomId('story_title').setLabel('Story Title / Post Headline').setStyle(TextInputStyle.Short).setPlaceholder('The Rise of...').setRequired(true);
         const loreInput = new TextInputBuilder().setCustomId('story_lore').setLabel('Faction History, Lore & Background').setStyle(TextInputStyle.Paragraph).setPlaceholder('Write your faction story here...').setRequired(true);
         
-        // 📸 PHOTO LINK ENTRY
-        const photoInput = new TextInputBuilder().setCustomId('story_photo').setLabel('Faction Banner / Photo URL').setStyle(TextInputStyle.Short).setPlaceholder('https://imgur.com... (Leave blank if none)').setRequired(false);
-        
-        // 🏷️ THREE-WAY RECRUITMENT STATUS SELECTOR FIELD
-        const recruitInput = new TextInputBuilder().setCustomId('story_recruit').setLabel('Status (OPEN / CLOSED / INVITATION)').setStyle(TextInputStyle.Short).setMaxLength(10).setValue('OPEN').setPlaceholder('Type: OPEN, CLOSED, or INVITATION').setRequired(true);
+        // 🏷️ EXPLICIT THREE-WAY RECRUITMENT STATUS SELECTOR FIELD
+        const recruitInput = new TextInputBuilder().setCustomId('story_recruit').setLabel('Status (OPEN / CLOSED / INVITE)').setStyle(TextInputStyle.Short).setMaxLength(10).setValue('OPEN').setPlaceholder('Type exactly: OPEN, CLOSED, or INVITE').setRequired(true);
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(titleInput),
             new ActionRowBuilder().addComponents(loreInput),
-            new ActionRowBuilder().addComponents(photoInput),
             new ActionRowBuilder().addComponents(recruitInput)
         );
 
         return interaction.showModal(modal).catch(console.error);
     }
+
 
     // --- G. PROCESS STORY FORM SUBMISSION & FORUM PUBLISH ---
     if (interaction.type === InteractionType.ModalSubmit && interaction.customId.startsWith('storyform_')) {
