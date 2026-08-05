@@ -258,40 +258,87 @@ client.on('interactionCreate', async (interaction) => {
         return interaction.showModal(modal).catch(console.error);
     }
 
-// --- G. PROCESS STORY FORM SUBMISSION & FORUM PUBLISH ---
-if (interaction.type === InteractionType.ModalSubmit && interaction.customId.startsWith('storyform_')) {
-    await interaction.deferReply({ ephemeral: true });
-    const factionName = interaction.customId.replace('storyform_', '');
-    const storyTitle = interaction.fields.getTextInputValue('story_title');
-    const storyLore = interaction.fields.getTextInputValue('story_lore');
-    const recruitStatus = interaction.fields.getTextInputValue('story_recruit').toUpperCase().trim();
-    const isOpen = recruitStatus === 'YES';
+    // --- G. PROCESS STORY FORM SUBMISSION & FORUM PUBLISH ---
+    if (interaction.type === InteractionType.ModalSubmit && interaction.customId.startsWith('storyform_')) {
+        await interaction.deferReply({ ephemeral: true });
+        const factionName = interaction.customId.replace('storyform_', '');
+        const storyTitle = interaction.fields.getTextInputValue('story_title');
+        const storyLore = interaction.fields.getTextInputValue('story_lore');
+        
+        // Convert input parsing checks to handle three distinct states: OPEN, CLOSED, or INVITE
+        const recruitStatus = interaction.fields.getTextInputValue('story_recruit').toUpperCase().trim();
 
-    try {
-        const forumChannel = await interaction.guild.channels.fetch(CONFIG.FACTION_LIST_FORUM_ID).catch(() => null);
-        if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
-            return interaction.editReply({ content: '❌ System Error: Target Forum configuration ID mismatch.' });
+        let statusTagLabel = 'open for recruitment';
+        let statusEmojiText = '🟢 **OPEN FOR RECRUITMENT**';
+
+        if (recruitStatus === 'CLOSED') {
+            statusTagLabel = 'closed';
+            statusEmojiText = '🔴 **CLOSED TO APPLICANTS**';
+        } else if (recruitStatus === 'INVITE' || recruitStatus === 'INVITATION') {
+            statusTagLabel = 'invite only'; // Make sure this matches your exact Discord Forum tag bubble name layout text
+            statusEmojiText = '🟡 **INVITE ONLY**';
         }
 
-        const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === (isOpen ? 'open for recruitment' : 'closed')) || null;
-        const appliedTags = targetTag ? [targetTag.id] : [];
-        
-        const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${isOpen ? '🟢 **OPEN FOR RECRUITMENT**' : '🔴 **CLOSED TO APPLICANTS**'}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested in joining our ranks?**\nIf you want to survive with us, head over straight to the <#1534277229083885698> application channel to select our group from the menu dropdown block and log your enlisting details officially!;`;
-        
-        const forumPostThread = await forumChannel.threads.create({
-            name: `${factionName} | ${storyTitle}`,
-            message: { content: postContent },
-            appliedTags: appliedTags,
-            reason: 'Automated Chronicle Entry'
-        });
+        try {
+            const forumChannel = await interaction.guild.channels.fetch(CONFIG.FACTION_LIST_FORUM_ID).catch(() => null);
+            if (!forumChannel || forumChannel.type !== ChannelType.GuildForum) {
+                return interaction.editReply({ content: '❌ System Error: Target Forum configuration ID mismatch.' });
+            }
 
-        await interaction.editReply({ content: `🎉 **Success!** Your Faction Origin Story has been published safely to the Forum! View here: ${forumPostThread}` });
-    } catch (err) {
-        console.error(err);
-        await interaction.editReply({ content: '❌ System exception error while processing forum thread publishing.' });
+            // Dynamically scan for your three distinct tag structures in your forum channel settings
+            const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
+            const appliedTags = targetTag ? [targetTag.id] : [];
+            
+            const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${statusEmojiText}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested?**\nHead over straight to the <#1534350906576076841> channel to select our faction and log your enlisting details officially!`;
+            
+            const forumPostThread = await forumChannel.threads.create({
+                name: `${factionName} | ${storyTitle}`,
+                message: { content: postContent },
+                appliedTags: appliedTags,
+                reason: 'Automated Chronicle Entry with Three-Way Recruitment Parse'
+            });
+
+            // 👑 PERMISSIONS ENGINE: Dynamic Edit Allocation Workspace
+            try {
+                // Fetch the dynamic faction leader role associated with this specific group
+                const associatedLeaderRole = interaction.guild.roles.cache.find(r => r.name.toLowerCase() === `faction leader_${factionName.toLowerCase()}`);
+                
+                // Construct permission override maps granting explicit editorial visibility rights
+                await forumPostThread.permissionOverwrites.set([
+                    {
+                        id: interaction.guild.roles.everyone.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.ReadMessageHistory],
+                        deny: [PermissionFlagsBits.SendMessages] // Keeps the forum read-only for public server lookers
+                    },
+                    {
+                        // Grants full message modifications and management permissions to your Server Staff
+                        id: CONFIG.FACTION_STAFF_ROLE_ID,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ManageThreads, PermissionFlagsBits.ReadMessageHistory]
+                    },
+                    ...(associatedLeaderRole ? [{
+                        // Grants direct content editing and moderation privileges to the faction's leader role profile
+                        id: associatedLeaderRole.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory]
+                    }] : []),
+                    {
+                        // Absolute fallback lock: Ensures the specific user account who posted retains active profile modification keys
+                        id: interaction.user.id,
+                        allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ManageMessages, PermissionFlagsBits.ReadMessageHistory]
+                    }
+                ], `Editorial Access Provision for ${factionName} Chronicles Management`);
+
+            } catch (permError) {
+                console.warn("⚠️ Non-fatal boundary limitation: Unable to bind standalone thread-isolated permission overwrites.", permError);
+            }
+
+            await interaction.editReply({ content: `🎉 **Success!** Your Faction Origin Story has been published safely to the Forum! View here: ${forumPostThread}` });
+        } catch (err) {
+            console.error(err);
+            await interaction.editReply({ content: '❌ System exception error while processing forum thread publishing.' });
+        }
+        return;
     }
-    return;
-}
+
     // --- H. DISPATCH SPLIT FACTION REGISTRATION FORM MODAL ---
     if (interaction.isButton() && interaction.customId === 'open_faction_modal') {
         const modal = new ModalBuilder().setCustomId('fac_form_submit').setTitle('Faction Registration Form');
