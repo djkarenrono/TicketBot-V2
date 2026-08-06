@@ -182,8 +182,14 @@ client.on('interactionCreate', async (interaction) => {
             .setPlaceholder('Select a faction to join...');
 
         try {
-            // Direct memory fallback prevents fetch authorization crashes
-            const serverRoles = interaction.guild.roles.cache;
+            // 🌟 THE FIX: Force a fresh, live download of all server roles straight from Discord's API (Bypasses local cache delays)
+            const serverRoles = await interaction.guild.roles.fetch({ force: true }).catch(() => null);
+            
+            if (!serverRoles || serverRoles.size === 0) {
+                return interaction.reply({ content: '❌ **System Error:** Failed to read live server roles from Discord API.', ephemeral: true });
+            }
+
+            // Filter roles directly from the freshly fetched collection instead of local cache
             const activeLeaderRoles = serverRoles.filter(role => role.name.startsWith('Faction Leader_'));
 
             if (activeLeaderRoles.size === 0) {
@@ -191,22 +197,24 @@ client.on('interactionCreate', async (interaction) => {
             } else {
                 const options = activeLeaderRoles.map(role => {
                     const cleanFactionName = role.name.replace('Faction Leader_', '');
+                    // Find the matching member role using the live data block
                     const matchingMemberRole = serverRoles.find(r => r.name.startsWith('[') && r.name.endsWith('] Member') && r.color === role.color);
                     const extractedTag = matchingMemberRole ? matchingMemberRole.name.split(']')[0].replace('[', '') : 'OB';
 
-                    return {
-                        label: `${cleanFactionName} [${extractedTag}]`,
-                        value: `join_${extractedTag}_${cleanFactionName.replace(/ /g, '-')}`,
-                        description: `Apply to join ${cleanFactionName}`
+                    return { 
+                        label: `${cleanFactionName} [${extractedTag}]`, 
+                        value: `join_${extractedTag}_${cleanFactionName.replace(/ /g, '-')}`, 
+                        description: `Apply to join ${cleanFactionName}` 
                     };
                 });
                 selectionMenu.addOptions(options);
             }
+
             const menuRow = new ActionRowBuilder().addComponents(selectionMenu);
             await interaction.reply({ embeds: [embed], components: [menuRow] });
         } catch (error) {
-            console.error('Dynamic layout scanner mapping failure:', error);
-            await interaction.reply({ content: '❌ System error processing role mapping filters layer arrays.', ephemeral: true });
+            console.error("Dynamic layout scanner mapping failure:", error);
+            await interaction.reply({ content: '❌ System error processing faction dropdown list.', ephemeral: true });
         }
         return;
     }
