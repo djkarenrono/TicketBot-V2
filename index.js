@@ -162,7 +162,7 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
-    // --- D. PUBLIC FACTION RECRUITMENT DYNAMIC LIVE ROLE SCANNER (CACHE BYPASS) ---
+    // --- D. PUBLIC FACTION RECRUITMENT DYNAMIC LIVE ROLE SCANNER (CACHE SYNCHRONIZATION FIX) ---
     if (interaction.isChatInputCommand() && interaction.commandName === 'setup-faction-apps') {
         const embed = new EmbedBuilder()
             .setTitle('👥 Apply to a Faction')
@@ -182,15 +182,22 @@ client.on('interactionCreate', async (interaction) => {
             .setPlaceholder('Select a faction to join...');
 
         try {
-            // 🌟 STEP 1: Fetch the updated role index straight from Discord's API network
-            const fetchedRoles = await interaction.guild.roles.fetch({ force: true }).catch(() => null);
-            
-            if (!fetchedRoles) {
-                return interaction.reply({ content: '❌ **System Error:** Failed to pull live roles structure from Discord API network.', ephemeral: true });
+            // 🌟 STEP 1: Safely audit the local cache collection array size
+            let serverRoles = interaction.guild.roles.cache;
+
+            // 🌟 STEP 2: If the cache is empty (typical during fresh Render boots), force a stable background synchronization fetch
+            if (!serverRoles || serverRoles.size <= 1) { // 1 accounts for @everyone role
+                const syncedRolesCollection = await interaction.guild.roles.fetch().catch(() => null);
+                if (syncedRolesCollection) {
+                    serverRoles = syncedRolesCollection; // Handover data to collection handle cleanly
+                }
             }
 
-            // 🌟 STEP 2: Target `.cache` from the fetched manager object to extract a filterable collection array
-            const serverRoles = fetchedRoles.cache;
+            // 🌟 STEP 3: Fallback check to ensure roles are parsed successfully
+            if (!serverRoles || serverRoles.size === 0) {
+                return interaction.reply({ content: '❌ **System Error:** Internal gateway failed to read or synchronize server memory grids.', ephemeral: true });
+            }
+
             const activeLeaderRoles = serverRoles.filter(role => role.name.startsWith('Faction Leader_'));
 
             if (activeLeaderRoles.size === 0) {
@@ -198,9 +205,8 @@ client.on('interactionCreate', async (interaction) => {
             } else {
                 const options = activeLeaderRoles.map(role => {
                     const cleanFactionName = role.name.replace('Faction Leader_', '');
-                    // Find the matching member role tag using the synced role collection data block
                     const matchingMemberRole = serverRoles.find(r => r.name.startsWith('[') && r.name.endsWith('] Member') && r.color === role.color);
-                    const extractedTag = matchingMemberRole ? matchingMemberRole.name.split(']')[0].replace('[', '') : 'OB';
+                    const extractedTag = matchingMemberRole ? matchingMemberRole.name.split(']').replace('[', '') : 'OB';
 
                     return { 
                         label: `${cleanFactionName} [${extractedTag}]`, 
@@ -219,6 +225,7 @@ client.on('interactionCreate', async (interaction) => {
         }
         return;
     }
+
     // --- E. SETUP ORIGIN STORIES SLASH COMMAND ---
     if (interaction.isChatInputCommand() && interaction.commandName === 'setup-origin-stories') {
         const row = new ActionRowBuilder().addComponents(
