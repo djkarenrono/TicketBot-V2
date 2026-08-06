@@ -162,7 +162,7 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
-    // --- D. PUBLIC FACTION RECRUITMENT DYNAMIC LIVE ROLE SCANNER (CACHE SYNCHRONIZATION FIX) ---
+    // --- D. PUBLIC FACTION RECRUITMENT DYNAMIC LIVE ROLE SCANNER (BUG-FREE RESILIENT MATRIX) ---
     if (interaction.isChatInputCommand() && interaction.commandName === 'setup-faction-apps') {
         const embed = new EmbedBuilder()
             .setTitle('👥 Apply to a Faction')
@@ -182,39 +182,67 @@ client.on('interactionCreate', async (interaction) => {
             .setPlaceholder('Select a faction to join...');
 
         try {
-            // 🌟 STEP 1: Safely audit the local cache collection array size
+            // Step 1: Initialize local server roles structure collection
             let serverRoles = interaction.guild.roles.cache;
 
-            // 🌟 STEP 2: If the cache is empty (typical during fresh Render boots), force a stable background synchronization fetch
-            if (!serverRoles || serverRoles.size <= 1) { // 1 accounts for @everyone role
-                const syncedRolesCollection = await interaction.guild.roles.fetch().catch(() => null);
-                if (syncedRolesCollection) {
-                    serverRoles = syncedRolesCollection; // Handover data to collection handle cleanly
+            // Step 2: Fetch and sync roles if the cache is empty on Render startup
+            if (!serverRoles || serverRoles.size <= 1) {
+                const fetchedRolesCollection = await interaction.guild.roles.fetch().catch(() => null);
+                if (fetchedRolesCollection) {
+                    serverRoles = fetchedRolesCollection.cache;
                 }
             }
 
-            // 🌟 STEP 3: Fallback check to ensure roles are parsed successfully
             if (!serverRoles || serverRoles.size === 0) {
-                return interaction.reply({ content: '❌ **System Error:** Internal gateway failed to read or synchronize server memory grids.', ephemeral: true });
+                return interaction.reply({ content: '❌ **System Error:** Internal gateway failed to initialize server memory maps.', ephemeral: true });
             }
 
-            const activeLeaderRoles = serverRoles.filter(role => role.name.startsWith('Faction Leader_'));
+            // Filter for factions matching the prefix string rule
+            const activeLeaderRoles = serverRoles.filter(role => role.name && role.name.startsWith('Faction Leader_'));
 
             if (activeLeaderRoles.size === 0) {
                 selectionMenu.addOptions([{ label: 'No Factions Registered Yet', value: 'none', description: 'Check back later!' }]);
             } else {
-                const options = activeLeaderRoles.map(role => {
-                    const cleanFactionName = role.name.replace('Faction Leader_', '');
-                    const matchingMemberRole = serverRoles.find(r => r.name.startsWith('[') && r.name.endsWith('] Member') && r.color === role.color);
-                    const extractedTag = matchingMemberRole ? matchingMemberRole.name.split(']').replace('[', '') : 'OB';
+                const options = [];
 
-                    return { 
-                        label: `${cleanFactionName} [${extractedTag}]`, 
-                        value: `join_${extractedTag}_${cleanFactionName.replace(/ /g, '-')}`, 
-                        description: `Apply to join ${cleanFactionName}` 
-                    };
+                // 🌟 THE ULTIMATE FIX: Safely parse each role and skip errors instead of crashing the bot
+                activeLeaderRoles.forEach(role => {
+                    try {
+                        const cleanFactionName = role.name.replace('Faction Leader_', '').trim();
+                        if (!cleanFactionName) return; // Skip if the faction name is empty
+
+                        // Find the matching member role tag by verifying the prefix and color match
+                        const matchingMemberRole = serverRoles.find(r => 
+                            r.name && 
+                            r.name.startsWith('[') && 
+                            r.name.endsWith('] Member') && 
+                            r.color === role.color
+                        );
+
+                        let extractedTag = 'OB'; // Secure default fallback tag configuration
+                        if (matchingMemberRole && matchingMemberRole.name.includes(']')) {
+                            const rawTag = matchingMemberRole.name.split(']')[0];
+                            extractedTag = rawTag.replace('[', '').trim();
+                        }
+
+                        // Generate a safe string value completely free of broken special characters
+                        const cleanValueString = `join_${extractedTag}_${cleanFactionName.replace(/[^a-zA-Z0-9]/g, '-')}`;
+
+                        options.push({
+                            label: `${cleanFactionName} [${extractedTag}]`,
+                            value: cleanValueString.substring(0, 100), // Enforce Discord's maximum character limit constraint rule
+                            description: `Apply to join ${cleanFactionName}`
+                        });
+                    } catch (loopError) {
+                        console.error(`Skipped malformed faction role definition [${role.name}]:`, loopError);
+                    }
                 });
-                selectionMenu.addOptions(options);
+
+                if (options.length === 0) {
+                    selectionMenu.addOptions([{ label: 'No Factions Registered Yet', value: 'none', description: 'Check back later!' }]);
+                } else {
+                    selectionMenu.addOptions(options);
+                }
             }
 
             const menuRow = new ActionRowBuilder().addComponents(selectionMenu);
