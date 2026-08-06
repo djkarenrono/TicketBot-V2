@@ -182,14 +182,15 @@ client.on('interactionCreate', async (interaction) => {
             .setPlaceholder('Select a faction to join...');
 
         try {
-            // 🌟 THE FIX: Force a fresh, live download of all server roles straight from Discord's API (Bypasses local cache delays)
-            const serverRoles = await interaction.guild.roles.fetch({ force: true }).catch(() => null);
+            // 🌟 STEP 1: Fetch the updated role index straight from Discord's API network
+            const fetchedRoles = await interaction.guild.roles.fetch({ force: true }).catch(() => null);
             
-            if (!serverRoles || serverRoles.size === 0) {
-                return interaction.reply({ content: '❌ **System Error:** Failed to read live server roles from Discord API.', ephemeral: true });
+            if (!fetchedRoles) {
+                return interaction.reply({ content: '❌ **System Error:** Failed to pull live roles structure from Discord API network.', ephemeral: true });
             }
 
-            // Filter roles directly from the freshly fetched collection instead of local cache
+            // 🌟 STEP 2: Target `.cache` from the fetched manager object to extract a filterable collection array
+            const serverRoles = fetchedRoles.cache;
             const activeLeaderRoles = serverRoles.filter(role => role.name.startsWith('Faction Leader_'));
 
             if (activeLeaderRoles.size === 0) {
@@ -197,7 +198,7 @@ client.on('interactionCreate', async (interaction) => {
             } else {
                 const options = activeLeaderRoles.map(role => {
                     const cleanFactionName = role.name.replace('Faction Leader_', '');
-                    // Find the matching member role using the live data block
+                    // Find the matching member role tag using the synced role collection data block
                     const matchingMemberRole = serverRoles.find(r => r.name.startsWith('[') && r.name.endsWith('] Member') && r.color === role.color);
                     const extractedTag = matchingMemberRole ? matchingMemberRole.name.split(']')[0].replace('[', '') : 'OB';
 
