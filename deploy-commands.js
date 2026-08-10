@@ -25,6 +25,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName('setup-origin-stories')
     .setDescription('Spawns the panel for Faction Leaders to post their Faction Origin Story.')
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('manage-factions')
+    .setDescription('Open the faction management panel: delete or transfer factions.')
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
 ].map(cmd => cmd.toJSON());
 
@@ -37,7 +42,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
       Routes.applicationCommands("1532893336921182339"), 
       { body: commands }
     );
-    console.log('✅ All 5 slash commands registered successfully!');
+    console.log('✅ All 6 slash commands registered successfully!');
   } catch (error) {
     console.error('Registration Failure:', error);
   }
