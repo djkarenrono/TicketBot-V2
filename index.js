@@ -13,7 +13,8 @@ const {
     TextInputBuilder,
     TextInputStyle,
     InteractionType,
-    StringSelectMenuBuilder
+    StringSelectMenuBuilder,
+    UserSelectMenuBuilder
 } = require('discord.js');
 
 // ==========================================
@@ -212,10 +213,10 @@ client.on('interactionCreate', async (interaction) => {
                         if (!cleanFactionName) return; // Skip if the faction name is empty
 
                         // Find the matching member role tag by verifying the prefix and color match
-                        const matchingMemberRole = serverRoles.find(r => 
-                            r.name && 
-                            r.name.startsWith('[') && 
-                            r.name.endsWith('] Member') && 
+                        const matchingMemberRole = serverRoles.find(r =>
+                            r.name &&
+                            r.name.startsWith('[') &&
+                            r.name.endsWith('] Member') &&
                             r.color === role.color
                         );
 
@@ -285,7 +286,7 @@ client.on('interactionCreate', async (interaction) => {
 
         const titleInput = new TextInputBuilder().setCustomId('story_title').setLabel('Story Title / Post Headline').setStyle(TextInputStyle.Short).setPlaceholder('The Rise of...').setRequired(true);
         const loreInput = new TextInputBuilder().setCustomId('story_lore').setLabel('Faction History, Lore & Background').setStyle(TextInputStyle.Paragraph).setPlaceholder('Write your faction story here...').setRequired(true);
-        
+
         // 🏷️ EXPLICIT THREE-WAY RECRUITMENT STATUS SELECTOR FIELD
         const recruitInput = new TextInputBuilder().setCustomId('story_recruit').setLabel('Status (OPEN / CLOSED / INVITE)').setStyle(TextInputStyle.Short).setMaxLength(10).setValue('OPEN').setPlaceholder('Type exactly: OPEN, CLOSED, or INVITE').setRequired(true);
 
@@ -305,7 +306,7 @@ client.on('interactionCreate', async (interaction) => {
         const factionName = interaction.customId.replace('storyform_', '');
         const storyTitle = interaction.fields.getTextInputValue('story_title');
         const storyLore = interaction.fields.getTextInputValue('story_lore');
-        
+
         // Convert input parsing checks to handle three distinct states: OPEN, CLOSED, or INVITE
         const recruitStatus = interaction.fields.getTextInputValue('story_recruit').toUpperCase().trim();
 
@@ -329,9 +330,9 @@ client.on('interactionCreate', async (interaction) => {
             // Dynamically scan for your three distinct tag structures in your forum channel settings
             const targetTag = forumChannel.availableTags.find(tag => tag.name.toLowerCase() === statusTagLabel) || null;
             const appliedTags = targetTag ? [targetTag.id] : [];
-            
+
             const postContent = `## 📜 ${storyTitle}\n\n**Faction Name:** ${factionName}\n**Published By:** <@${interaction.user.id}>\n**Status:** ${statusEmojiText}\n\n### 📖 Faction History & Lore:\n${storyLore}\n\n🚨 **Interested?**\nHead over straight to the <#1534350906576076841> channel to select our faction and log your enlisting details officially!`;
-            
+
             const forumPostThread = await forumChannel.threads.create({
                 name: `${factionName} | ${storyTitle}`,
                 message: { content: postContent },
@@ -343,7 +344,7 @@ client.on('interactionCreate', async (interaction) => {
             try {
                 // Fetch the dynamic faction leader role associated with this specific group
                 const associatedLeaderRole = interaction.guild.roles.cache.find(r => r.name.toLowerCase() === `faction leader_${factionName.toLowerCase()}`);
-                
+
                 // Construct permission override maps granting explicit editorial visibility rights
                 await forumPostThread.permissionOverwrites.set([
                     {
@@ -355,10 +356,10 @@ client.on('interactionCreate', async (interaction) => {
                         // Grants full message modifications, chat, and attachment management permissions to your Server Staff
                         id: CONFIG.FACTION_STAFF_ROLE_ID,
                         allow: [
-                            PermissionFlagsBits.ViewChannel, 
-                            PermissionFlagsBits.SendMessages, 
-                            PermissionFlagsBits.ManageMessages, 
-                            PermissionFlagsBits.ManageThreads, 
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ManageMessages,
+                            PermissionFlagsBits.ManageThreads,
                             PermissionFlagsBits.ReadMessageHistory,
                             PermissionFlagsBits.AttachFiles
                         ]
@@ -367,9 +368,9 @@ client.on('interactionCreate', async (interaction) => {
                         // 🌟 THE FIX: Grants direct message sending, content editing, and file upload attachments to the faction's leader role profile
                         id: associatedLeaderRole.id,
                         allow: [
-                            PermissionFlagsBits.ViewChannel, 
-                            PermissionFlagsBits.SendMessages, 
-                            PermissionFlagsBits.ManageMessages, 
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ManageMessages,
                             PermissionFlagsBits.ReadMessageHistory,
                             PermissionFlagsBits.AttachFiles
                         ]
@@ -378,9 +379,9 @@ client.on('interactionCreate', async (interaction) => {
                         // Absolute fallback lock: Ensures the specific user account who posted retains active profile modification keys and upload privileges
                         id: interaction.user.id,
                         allow: [
-                            PermissionFlagsBits.ViewChannel, 
-                            PermissionFlagsBits.SendMessages, 
-                            PermissionFlagsBits.ManageMessages, 
+                            PermissionFlagsBits.ViewChannel,
+                            PermissionFlagsBits.SendMessages,
+                            PermissionFlagsBits.ManageMessages,
                             PermissionFlagsBits.ReadMessageHistory,
                             PermissionFlagsBits.AttachFiles
                         ]
@@ -577,8 +578,8 @@ client.on('interactionCreate', async (interaction) => {
         const reasonInput = new TextInputBuilder().setCustomId('join_reason').setLabel('Why do you want to join us?').setStyle(TextInputStyle.Paragraph).setRequired(true);
 
         modal.addComponents(
-            new ActionRowBuilder().addComponents(ignInput), 
-            new ActionRowBuilder().addComponents(dcInput), 
+            new ActionRowBuilder().addComponents(ignInput),
+            new ActionRowBuilder().addComponents(dcInput),
             new ActionRowBuilder().addComponents(reasonInput)
         );
         await interaction.showModal(modal);
@@ -606,7 +607,7 @@ client.on('interactionCreate', async (interaction) => {
             const leaderPing = targetLeaderRole ? `<@&${targetLeaderRole.id}>` : 'Faction Leaders';
 
             const randomNumber = Math.floor(1000 + Math.random() * 9000);
-            
+
             // Build a private isolation thread ticket inside your recruitment category workspace
             let joinTicket = await guild.channels.create({
                 name: `join-${tag.toLowerCase()}-${randomNumber}`,
@@ -661,7 +662,7 @@ client.on('interactionCreate', async (interaction) => {
         // Secure Audit Check: Ensure the user clicking holds the required Leader Role or Administrator permission
         const leaderRoleCheck = interaction.member.roles.cache.find(role => role.name.startsWith('Faction Leader_'));
         const isServerAdmin = interaction.member.permissions.has(PermissionFlagsBits.Administrator);
-        
+
         if (!leaderRoleCheck && !isServerAdmin) {
             return interaction.reply({ content: '❌ **Access Denied:** Only the designated Faction Leader or Server Staff can handle this application.', ephemeral: true });
         }
@@ -671,16 +672,16 @@ client.on('interactionCreate', async (interaction) => {
 
         if (action === 'approve') {
             await interaction.reply({ content: '⚙️ **Application Approved!** Enrolling survivor and setting up memberships...' });
-            
+
             try {
                 if (applicant && teamRole) {
                     // Automatically add the verified general membership role tag to the applicant profile
                     await applicant.roles.add(teamRole);
-                    await applicant.send(`🎉 **Great news, Survivor!** Your application to enlist with **[${tag}]** has been officially approved by the Faction Leader! You now have access to your group's private workspace.`).catch(() => {});
+                    await applicant.send(`🎉 **Great news, Survivor!** Your application to enlist with **[${tag}]** has been officially approved by the Faction Leader! You now have access to your group's private workspace.`).catch(() => { });
                 }
-                
+
                 await interaction.editReply({ content: '✅ **Success!** Survivor role assigned. Closing workspace channel...' });
-                setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+                setTimeout(() => interaction.channel.delete().catch(() => { }), 5000);
             } catch (roleErr) {
                 console.error(roleErr);
                 await interaction.editReply({ content: '❌ **System Error:** Failed to grant role. Check bot hierarchy placement.' });
@@ -691,9 +692,9 @@ client.on('interactionCreate', async (interaction) => {
         if (action === 'reject') {
             await interaction.reply({ content: '❌ **Applicant Rejected.** Cleaning up workspace thread...' });
             if (applicant) {
-                await applicant.send(`🛑 **Notice:** Your application request to enlist with the faction **[${tag}]** has been declined by their leadership.`).catch(() => {});
+                await applicant.send(`🛑 **Notice:** Your application request to enlist with the faction **[${tag}]** has been declined by their leadership.`).catch(() => { });
             }
-            setTimeout(() => interaction.channel.delete().catch(() => {}), 5000);
+            setTimeout(() => interaction.channel.delete().catch(() => { }), 5000);
             return;
         }
     }
@@ -893,14 +894,14 @@ client.on('interactionCreate', async (interaction) => {
             parent: CONFIG.SUPPORT_CATEGORY_ID || null,
             permissionOverwrites: [
                 { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] },
-                { id: CONFIG.SUPPORT_STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory] }
+                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] },
+                { id: CONFIG.SUPPORT_STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] }
             ]
         });
 
         const infoEmbed = new EmbedBuilder()
             .setTitle(`🎫 Ticket Form: ${ticketType.toUpperCase()}`)
-            .setDescription(`Created by <@${interaction.user.id}>\n\n**Details Provided:**\n${interaction.fields.getTextInputValue('general_desc')}`)
+            .setDescription(`Created by <@${interaction.user.id}>\n\n**Details Provided:**\n${interaction.fields.getTextInputValue('general_desc')}\n\n📎 *If you have screenshots, logs, or other files as evidence, feel free to attach them directly in this channel.*`)
             .setColor(0xE74C3C)
             .setTimestamp();
 
@@ -942,6 +943,205 @@ client.on('interactionCreate', async (interaction) => {
         setTimeout(() => interaction.channel.delete().catch(() => { }), 5000);
         return;
     }
+
+    // --- U. MANAGE FACTIONS SLASH COMMAND ---
+    if (interaction.isChatInputCommand() && interaction.commandName === 'manage-factions') {
+        const isStaff = interaction.member.roles.cache.has(CONFIG.FACTION_STAFF_ROLE_ID) || interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isStaff) return interaction.reply({ content: '❌ Only authorized Staff can manage factions.', ephemeral: true });
+
+        let serverRoles = interaction.guild.roles.cache;
+        if (!serverRoles || serverRoles.size <= 1) {
+            const fetched = await interaction.guild.roles.fetch().catch(() => null);
+            if (fetched) serverRoles = fetched.cache;
+        }
+
+        const leaderRoles = serverRoles.filter(r => r.name && r.name.startsWith('Faction Leader_'));
+
+        if (leaderRoles.size === 0) {
+            return interaction.reply({ content: '❌ No registered factions found.', ephemeral: true });
+        }
+
+        const options = leaderRoles.map(role => ({
+            label: role.name.replace('Faction Leader_', '').substring(0, 100),
+            value: role.id,
+            description: 'Manage this faction'
+        })).slice(0, 25);
+
+        const selectMenu = new StringSelectMenuBuilder()
+            .setCustomId('mf_select_faction')
+            .setPlaceholder('Select a faction to manage...')
+            .addOptions(options);
+
+        const row = new ActionRowBuilder().addComponents(selectMenu);
+        await interaction.reply({ content: '🛠️ **Faction Management Panel** — select a faction below:', components: [row], ephemeral: true });
+        return;
+    }
+
+    // --- V. MANAGE FACTIONS: FACTION SELECTED, SHOW ACTIONS ---
+    if (interaction.isStringSelectMenu() && interaction.customId === 'mf_select_faction') {
+        const roleId = interaction.values[0];
+        const leaderRole = interaction.guild.roles.cache.get(roleId);
+        if (!leaderRole) return interaction.update({ content: '❌ That faction role no longer exists.', components: [] });
+
+        const factionName = leaderRole.name.replace('Faction Leader_', '');
+
+        const embed = new EmbedBuilder()
+            .setTitle(`🛠️ Managing: ${factionName}`)
+            .setDescription('Choose an action below. Destructive actions will ask for confirmation.')
+            .setColor(0xE67E22);
+
+        const row1 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`mf_delroles_${roleId}`).setLabel('🗑️ Delete Roles Only').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId(`mf_delchan_${roleId}`).setLabel('🗑️ Delete Channels Only').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId(`mf_delall_${roleId}`).setLabel('🗑️ Delete Everything').setStyle(ButtonStyle.Danger)
+        );
+        const row2 = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`mf_transfer_${roleId}`).setLabel('🔄 Transfer Leadership').setStyle(ButtonStyle.Primary)
+        );
+
+        await interaction.update({ content: '', embeds: [embed], components: [row1, row2] });
+        return;
+    }
+
+    // --- W. MANAGE FACTIONS: ASK FOR CONFIRMATION ---
+    if (interaction.isButton() && (interaction.customId.startsWith('mf_delroles_') || interaction.customId.startsWith('mf_delchan_') || interaction.customId.startsWith('mf_delall_'))) {
+        const [, actionRaw, roleId] = interaction.customId.split('_');
+        const action = actionRaw.replace('del', '');
+        const leaderRole = interaction.guild.roles.cache.get(roleId);
+        const factionName = leaderRole ? leaderRole.name.replace('Faction Leader_', '') : 'Unknown';
+
+        const warnings = {
+            roles: 'This will permanently delete the **Faction Leader** and **Member** roles. Members will lose access immediately.',
+            chan: 'This will permanently delete the faction **category, text channel, and voice channel**.',
+            all: 'This will permanently delete the **roles, category, and all channels** for this faction. This cannot be undone.'
+        };
+
+        const embed = new EmbedBuilder()
+            .setTitle(`⚠️ Confirm: ${factionName}`)
+            .setDescription(warnings[action] || 'Are you sure?')
+            .setColor(0xE74C3C);
+
+        const row = new ActionRowBuilder().addComponents(
+            new ButtonBuilder().setCustomId(`mf_confirm_${action}_${roleId}`).setLabel('✅ Yes, Proceed').setStyle(ButtonStyle.Danger),
+            new ButtonBuilder().setCustomId('mf_cancel').setLabel('❌ Cancel').setStyle(ButtonStyle.Secondary)
+        );
+
+        await interaction.update({ embeds: [embed], components: [row] });
+        return;
+    }
+
+    if (interaction.isButton() && interaction.customId === 'mf_cancel') {
+        await interaction.update({ content: '❌ Action cancelled.', embeds: [], components: [] });
+        return;
+    }
+
+    // --- X. MANAGE FACTIONS: EXECUTE DELETION ---
+    if (interaction.isButton() && interaction.customId.startsWith('mf_confirm_')) {
+        const parts = interaction.customId.split('_');
+        const action = parts[2];
+        const roleId = parts[3];
+        const guild = interaction.guild;
+
+        const leaderRole = guild.roles.cache.get(roleId);
+        if (!leaderRole) return interaction.update({ content: '❌ That faction role no longer exists.', embeds: [], components: [] });
+
+        const factionName = leaderRole.name.replace('Faction Leader_', '');
+        const memberRole = guild.roles.cache.find(r => r.name && r.name.endsWith('] Member') && r.color === leaderRole.color);
+        const category = guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === `FACTION: ${factionName.toUpperCase()}`);
+
+        await interaction.update({ content: `⚙️ Processing deletion for **${factionName}**...`, embeds: [], components: [] });
+
+        let logLines = [];
+
+        try {
+            if (action === 'roles' || action === 'all') {
+                if (leaderRole) { await leaderRole.delete('Faction management: deleted by staff').catch(() => { }); logLines.push('Leader role deleted.'); }
+                if (memberRole) { await memberRole.delete('Faction management: deleted by staff').catch(() => { }); logLines.push('Member role deleted.'); }
+            }
+
+            if (action === 'chan' || action === 'all') {
+                if (category) {
+                    const children = guild.channels.cache.filter(c => c.parentId === category.id);
+                    for (const [, ch] of children) await ch.delete().catch(() => { });
+                    await category.delete().catch(() => { });
+                    logLines.push('Category and channels deleted.');
+                } else {
+                    logLines.push('⚠️ No matching category found to delete.');
+                }
+            }
+
+            await interaction.editReply({ content: `✅ **Done.**\n${logLines.join('\n')}` });
+
+            const logChannel = await guild.channels.fetch(CONFIG.FACTION_LOG_CHANNEL_ID).catch(() => null);
+            if (logChannel) {
+                const logEmbed = new EmbedBuilder()
+                    .setTitle('🗑️ Faction Removed')
+                    .setDescription(`**${factionName}** was modified by <@${interaction.user.id}>.\n${logLines.join('\n')}`)
+                    .setColor(0xE74C3C)
+                    .setTimestamp();
+                await logChannel.send({ embeds: [logEmbed] });
+            }
+        } catch (err) {
+            console.error(err);
+            await interaction.editReply({ content: '❌ Error occurred during deletion. Some items may not have been removed.' });
+        }
+        return;
+    }
+
+    // --- Y. MANAGE FACTIONS: TRANSFER LEADERSHIP - OPEN USER PICKER ---
+    if (interaction.isButton() && interaction.customId.startsWith('mf_transfer_') && !interaction.customId.startsWith('mf_transfer_select')) {
+        const roleId = interaction.customId.replace('mf_transfer_', '');
+        const userSelect = new UserSelectMenuBuilder()
+            .setCustomId(`mf_transferselect_${roleId}`)
+            .setPlaceholder('Select the new Faction Leader...');
+
+        const row = new ActionRowBuilder().addComponents(userSelect);
+        await interaction.update({ content: '🔄 **Select the new Faction Leader:**', embeds: [], components: [row] });
+        return;
+    }
+
+    // --- Z. MANAGE FACTIONS: PROCESS LEADERSHIP TRANSFER ---
+    if (interaction.isUserSelectMenu() && interaction.customId.startsWith('mf_transferselect_')) {
+        const roleId = interaction.customId.replace('mf_transferselect_', '');
+        const guild = interaction.guild;
+        const leaderRole = guild.roles.cache.get(roleId);
+        if (!leaderRole) return interaction.update({ content: '❌ That faction role no longer exists.', components: [] });
+
+        const factionName = leaderRole.name.replace('Faction Leader_', '');
+        const memberRole = guild.roles.cache.find(r => r.name && r.name.endsWith('] Member') && r.color === leaderRole.color);
+        const newLeaderId = interaction.values[0];
+        const newLeader = await guild.members.fetch(newLeaderId).catch(() => null);
+
+        if (!newLeader) return interaction.update({ content: '❌ Could not find that member in the server.', components: [] });
+
+        try {
+            const oldLeaders = leaderRole.members;
+            for (const [, oldLeader] of oldLeaders) {
+                if (oldLeader.id !== newLeaderId) await oldLeader.roles.remove(leaderRole).catch(() => { });
+            }
+
+            await newLeader.roles.add(leaderRole);
+            if (memberRole && !newLeader.roles.cache.has(memberRole.id)) await newLeader.roles.add(memberRole);
+
+            await interaction.update({ content: `✅ **${factionName}** leadership transferred to <@${newLeaderId}>.`, components: [] });
+
+            const logChannel = await guild.channels.fetch(CONFIG.FACTION_LOG_CHANNEL_ID).catch(() => null);
+            if (logChannel) {
+                const logEmbed = new EmbedBuilder()
+                    .setTitle('🔄 Faction Leadership Transferred')
+                    .setDescription(`**${factionName}** leadership transferred to <@${newLeaderId}> by <@${interaction.user.id}>.`)
+                    .setColor(0x3498DB)
+                    .setTimestamp();
+                await logChannel.send({ embeds: [logEmbed] });
+            }
+            await newLeader.send(`👑 You have been made the new Faction Leader of **${factionName}**!`).catch(() => { });
+        } catch (err) {
+            console.error(err);
+            await interaction.update({ content: '❌ Error transferring leadership. Check bot role hierarchy.', components: [] });
+        }
+        return;
+    }
+
     // 🌟 THE FIX: This safely closes the master client.on('interactionCreate') event listener block FIRST!
 });
 
@@ -955,7 +1155,7 @@ async function compileTranscript(channel, closedBy, reason) {
 
         const msgs = await channel.messages.fetch({ limit: 100 });
         let text = `=== LOG TRANSCRIPT: ${channel.name} ===\nClosed By: ${closedBy}\nReason: ${reason}\n\n`;
-        
+
         Array.from(msgs.values()).reverse().forEach(m => {
             text += `[${m.createdAt.toUTCString()}] ${m.author.tag}: ${m.content}\n`;
         });
