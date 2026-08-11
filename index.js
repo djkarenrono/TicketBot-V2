@@ -534,7 +534,8 @@ client.on('interactionCreate', async (interaction) => {
                         await hubChannel.permissionOverwrites.create(leaderRole.id, {
                             ViewChannel: true,
                             SendMessages: true,
-                            ReadMessageHistory: true
+                            ReadMessageHistory: true,
+                            UseApplicationCommands: true
                         });
                     }
                 } catch (hubErr) {
