@@ -34,8 +34,8 @@ const CONFIG = {
     FACTION_APP_CATEGORY_ID: process.env.FACTION_APP_CATEGORY_ID || "1534277229083885698",
     FACTION_LOG_CHANNEL_ID: process.env.FACTION_LOG_CHANNEL_ID || "1534292895643861073",
     FACTION_JOIN_TICKETS_CATEGORY_ID: process.env.FACTION_JOIN_TICKETS_CATEGORY_ID || "1534277229083885698",
-    FACTION_LIST_FORUM_ID: process.env.FACTION_LIST_FORUM_ID || "1534357448800862320"
-};
+    FACTION_LIST_FORUM_ID: process.env.FACTION_LIST_FORUM_ID || "1534357448800862320",
+    FACTION_LEADERS_HUB_CHANNEL_ID: process.env.FACTION_LEADERS_HUB_CHANNEL_ID || "1536548935848562779"};
 
 // Dummy web server for Render
 http.createServer((req, res) => {
@@ -525,6 +525,20 @@ client.on('interactionCreate', async (interaction) => {
                 if (leaderMember) {
                     await leaderMember.roles.add(leaderRole);
                     await leaderMember.roles.add(generalRole);
+                }
+
+                // Grant this new Faction Leader role access to the Faction Leaders Hub channel
+                try {
+                    const hubChannel = await guild.channels.fetch(CONFIG.FACTION_LEADERS_HUB_CHANNEL_ID).catch(() => null);
+                    if (hubChannel) {
+                        await hubChannel.permissionOverwrites.create(leaderRole.id, {
+                            ViewChannel: true,
+                            SendMessages: true,
+                            ReadMessageHistory: true
+                        });
+                    }
+                } catch (hubErr) {
+                    console.warn('⚠️ Could not grant new leader role access to Faction Leaders Hub:', hubErr);
                 }
 
                 const factionCategory = await guild.channels.create({
@@ -1210,6 +1224,10 @@ client.on('interactionCreate', async (interaction) => {
 
     // --- AA. FACTION STATUS SLASH COMMAND (LEADER ONLY) ---
     if (interaction.isChatInputCommand() && interaction.commandName === 'faction-status') {
+        if (interaction.channel.id !== CONFIG.FACTION_LEADERS_HUB_CHANNEL_ID) {
+            return interaction.reply({ content: `❌ This command can only be used in <#${CONFIG.FACTION_LEADERS_HUB_CHANNEL_ID}>.`, ephemeral: true });
+        }
+
         const leaderRole = interaction.member.roles.cache.find(role => role.name.startsWith('Faction Leader_'));
         if (!leaderRole) {
             return interaction.reply({ content: '❌ **Access Denied:** Only a Faction Leader can change faction status.', ephemeral: true });
