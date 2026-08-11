@@ -521,8 +521,45 @@ client.on('interactionCreate', async (interaction) => {
                     type: ChannelType.GuildCategory,
                     permissionOverwrites: [
                         { id: guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                        { id: generalRole.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.Connect, PermissionFlagsBits.Speak] },
-                        { id: CONFIG.FACTION_STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages] }
+                        {
+                            id: leaderRole.id,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.SendMessages,
+                                PermissionFlagsBits.ReadMessageHistory,
+                                PermissionFlagsBits.AttachFiles,
+                                PermissionFlagsBits.EmbedLinks,
+                                PermissionFlagsBits.Connect,
+                                PermissionFlagsBits.Speak,
+                                PermissionFlagsBits.UseVAD
+                            ]
+                        },
+                        {
+                            id: generalRole.id,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.SendMessages,
+                                PermissionFlagsBits.ReadMessageHistory,
+                                PermissionFlagsBits.AttachFiles,
+                                PermissionFlagsBits.EmbedLinks,
+                                PermissionFlagsBits.Connect,
+                                PermissionFlagsBits.Speak,
+                                PermissionFlagsBits.UseVAD
+                            ]
+                        },
+                        {
+                            id: CONFIG.FACTION_STAFF_ROLE_ID,
+                            allow: [
+                                PermissionFlagsBits.ViewChannel,
+                                PermissionFlagsBits.SendMessages,
+                                PermissionFlagsBits.ReadMessageHistory,
+                                PermissionFlagsBits.AttachFiles,
+                                PermissionFlagsBits.EmbedLinks,
+                                PermissionFlagsBits.Connect,
+                                PermissionFlagsBits.Speak,
+                                PermissionFlagsBits.UseVAD
+                            ]
+                        }
                     ]
                 });
 
