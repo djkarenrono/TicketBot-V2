@@ -931,14 +931,32 @@ client.on('interactionCreate', async (interaction) => {
             parent: CONFIG.SUPPORT_CATEGORY_ID || null,
             permissionOverwrites: [
                 { id: interaction.guild.roles.everyone.id, deny: [PermissionFlagsBits.ViewChannel] },
-                { id: interaction.user.id, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] },
-                { id: CONFIG.SUPPORT_STAFF_ROLE_ID, allow: [PermissionFlagsBits.ViewChannel, PermissionFlagsBits.SendMessages, PermissionFlagsBits.ReadMessageHistory, PermissionFlagsBits.AttachFiles, PermissionFlagsBits.EmbedLinks] }
+                {
+                    id: interaction.user.id,
+                    allow: [
+                        PermissionFlagsBits.ViewChannel,
+                        PermissionFlagsBits.SendMessages,
+                        PermissionFlagsBits.ReadMessageHistory,
+                        PermissionFlagsBits.AttachFiles,
+                        PermissionFlagsBits.EmbedLinks
+                    ]
+                },
+                {
+                    id: CONFIG.SUPPORT_STAFF_ROLE_ID,
+                    allow: [
+                        PermissionFlagsBits.ViewChannel,
+                        PermissionFlagsBits.SendMessages,
+                        PermissionFlagsBits.ReadMessageHistory,
+                        PermissionFlagsBits.AttachFiles,
+                        PermissionFlagsBits.EmbedLinks
+                    ]
+                }
             ]
         });
 
         const infoEmbed = new EmbedBuilder()
             .setTitle(`🎫 Ticket Form: ${ticketType.toUpperCase()}`)
-            .setDescription(`Created by <@${interaction.user.id}>\n\n**Details Provided:**\n${interaction.fields.getTextInputValue('general_desc')}\n\n📎 *If you have screenshots, logs, or other files as evidence, feel free to attach them directly in this channel.*`)
+            .setDescription(`Created by <@${interaction.user.id}>\n\n**Details Provided:**\n${interaction.fields.getTextInputValue('general_desc')}\n\n📎 *You can attach screenshots, video clips, or other files directly in this channel to help staff assist you.*`)
             .setColor(0xE74C3C)
             .setTimestamp();
 
