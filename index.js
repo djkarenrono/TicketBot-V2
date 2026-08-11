@@ -542,6 +542,23 @@ client.on('interactionCreate', async (interaction) => {
                     console.warn('⚠️ Could not grant new leader role access to Faction Leaders Hub:', hubErr);
                 }
 
+                // Grant this new Faction Leader role access to post and attach media in the Faction Origin Story forum
+                try {
+                    const originForum = await guild.channels.fetch(CONFIG.FACTION_LIST_FORUM_ID).catch(() => null);
+                    if (originForum) {
+                        await originForum.permissionOverwrites.create(leaderRole.id, {
+                            ViewChannel: true,
+                            ReadMessageHistory: true,
+                            CreatePublicThreads: true,
+                            SendMessagesInThreads: true,
+                            AttachFiles: true,
+                            EmbedLinks: true
+                        });
+                    }
+                } catch (forumErr) {
+                    console.warn('⚠️ Could not grant new leader role access to Faction Origin Story forum:', forumErr);
+                }
+
                 const factionCategory = await guild.channels.create({
                     name: `FACTION: ${factionName.toUpperCase()}`,
                     type: ChannelType.GuildCategory,
