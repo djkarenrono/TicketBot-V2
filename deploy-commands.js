@@ -30,7 +30,11 @@ const commands = [
   new SlashCommandBuilder()
     .setName('manage-factions')
     .setDescription('Open the faction management panel: delete or transfer factions.')
-    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator)
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
+    .setName('faction-status')
+    .setDescription('Faction Leaders: set your faction\'s recruitment/invitation status.')
 ].map(cmd => cmd.toJSON());
 
 const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
@@ -42,7 +46,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
       Routes.applicationCommands("1532893336921182339"), 
       { body: commands }
     );
-    console.log('✅ All 6 slash commands registered successfully!');
+    console.log('✅ All 7 slash commands registered successfully!');
   } catch (error) {
     console.error('Registration Failure:', error);
   }
