@@ -1,7 +1,7 @@
 require('dotenv').config();
 const { Client, GatewayIntentBits } = require('discord.js');
 
-const FORUM_CHANNEL_ID = "1534357448800862320"; // CONFIG.FACTION_LIST_FORUM_ID
+const HUB_CHANNEL_ID = "1536548935848562779";
 const GUILD_ID = process.env.GUILD_ID || "1259387162655199332";
 
 const client = new Client({
@@ -16,9 +16,9 @@ client.once('ready', async () => {
         await guild.roles.fetch();
         await guild.channels.fetch();
 
-        const forumChannel = guild.channels.cache.get(FORUM_CHANNEL_ID);
-        if (!forumChannel) {
-            console.error('❌ Could not find the Faction Origin Story forum channel. Check the channel ID.');
+        const hubChannel = guild.channels.cache.get(HUB_CHANNEL_ID);
+        if (!hubChannel) {
+            console.error('❌ Could not find the Faction Leaders Hub channel. Check the channel ID.');
             process.exit(1);
         }
 
@@ -33,13 +33,11 @@ client.once('ready', async () => {
 
         for (const [, role] of leaderRoles) {
             try {
-                await forumChannel.permissionOverwrites.create(role.id, {
+                await hubChannel.permissionOverwrites.create(role.id, {
                     ViewChannel: true,
+                    SendMessages: true,
                     ReadMessageHistory: true,
-                    CreatePublicThreads: true,
-                    SendMessagesInThreads: true,
-                    AttachFiles: true,
-                    EmbedLinks: true
+                    UseApplicationCommands: true
                 });
                 console.log(`✅ Granted access: ${role.name}`);
             } catch (err) {
