@@ -185,6 +185,7 @@ client.on('interactionCreate', async (interaction) => {
         try {
             // Step 1: Initialize local server roles structure collection
             let serverRoles = interaction.guild.roles.cache;
+            const serverChannels = interaction.guild.channels.cache;
 
             // Step 2: Fetch and sync roles if the cache is empty on Render startup
             if (!serverRoles || serverRoles.size <= 1) {
@@ -211,6 +212,16 @@ client.on('interactionCreate', async (interaction) => {
                     try {
                         const cleanFactionName = role.name.replace('Faction Leader_', '').trim();
                         if (!cleanFactionName) return; // Skip if the faction name is empty
+
+                        // Skip factions that are closed for recruitment or invitation
+                        const factionCategory = serverChannels.find(c => c.type === ChannelType.GuildCategory && c.name === `FACTION: ${cleanFactionName.toUpperCase()}`);
+                        if (factionCategory) {
+                            const factionTextChannel = serverChannels.find(c => c.parentId === factionCategory.id && c.type === ChannelType.GuildText);
+                            if (factionTextChannel && factionTextChannel.topic && factionTextChannel.topic.startsWith('FACTION_STATUS::')) {
+                                const currentStatus = factionTextChannel.topic.replace('FACTION_STATUS::', '').trim();
+                                if (currentStatus === 'CLOSED_RECRUITMENT' || currentStatus === 'CLOSED_INVITATION') return;
+                            }
+                        }
 
                         // Find the matching member role tag by verifying the prefix and color match
                         const matchingMemberRole = serverRoles.find(r =>
@@ -1193,6 +1204,75 @@ client.on('interactionCreate', async (interaction) => {
         } catch (err) {
             console.error(err);
             await interaction.update({ content: '❌ Error transferring leadership. Check bot role hierarchy.', components: [] });
+        }
+        return;
+    }
+
+    // --- AA. FACTION STATUS SLASH COMMAND (LEADER ONLY) ---
+    if (interaction.isChatInputCommand() && interaction.commandName === 'faction-status') {
+        const leaderRole = interaction.member.roles.cache.find(role => role.name.startsWith('Faction Leader_'));
+        if (!leaderRole) {
+            return interaction.reply({ content: '❌ **Access Denied:** Only a Faction Leader can change faction status.', ephemeral: true });
+        }
+
+        const factionName = leaderRole.name.replace('Faction Leader_', '');
+
+        const statusMenu = new StringSelectMenuBuilder()
+            .setCustomId(`fstatus_set_${leaderRole.id}`)
+            .setPlaceholder('Select new faction status...')
+            .addOptions([
+                { label: 'Open for Recruitment', value: 'OPEN_RECRUITMENT', description: 'Visible in the public faction dropdown', emoji: '🟢' },
+                { label: 'Open for Invitation', value: 'OPEN_INVITATION', description: 'Visible in the public faction dropdown', emoji: '🟡' },
+                { label: 'Closed for Recruitment', value: 'CLOSED_RECRUITMENT', description: 'Hidden from the public faction dropdown', emoji: '🔴' },
+                { label: 'Closed for Invitation', value: 'CLOSED_INVITATION', description: 'Hidden from the public faction dropdown', emoji: '⚫' }
+            ]);
+
+        const row = new ActionRowBuilder().addComponents(statusMenu);
+        await interaction.reply({ content: `🛠️ **Set status for ${factionName}:**`, components: [row], ephemeral: true });
+        return;
+    }
+
+    // --- AB. FACTION STATUS: APPLY SELECTED STATUS ---
+    if (interaction.isStringSelectMenu() && interaction.customId.startsWith('fstatus_set_')) {
+        const roleId = interaction.customId.replace('fstatus_set_', '');
+        const leaderRole = interaction.guild.roles.cache.get(roleId);
+
+        if (!leaderRole || !interaction.member.roles.cache.has(roleId)) {
+            return interaction.update({ content: '❌ You no longer hold this Faction Leader role.', components: [] });
+        }
+
+        const factionName = leaderRole.name.replace('Faction Leader_', '');
+        const selectedStatus = interaction.values[0];
+
+        const statusLabels = {
+            OPEN_RECRUITMENT: '🟢 Open for Recruitment',
+            OPEN_INVITATION: '🟡 Open for Invitation',
+            CLOSED_RECRUITMENT: '🔴 Closed for Recruitment',
+            CLOSED_INVITATION: '⚫ Closed for Invitation'
+        };
+
+        try {
+            const category = interaction.guild.channels.cache.find(c => c.type === ChannelType.GuildCategory && c.name === `FACTION: ${factionName.toUpperCase()}`);
+            if (!category) {
+                return interaction.update({ content: '❌ Could not find your faction\'s category channel.', components: [] });
+            }
+
+            const textChannel = interaction.guild.channels.cache.find(c => c.parentId === category.id && c.type === ChannelType.GuildText);
+            if (!textChannel) {
+                return interaction.update({ content: '❌ Could not find your faction\'s text channel.', components: [] });
+            }
+
+            await textChannel.setTopic(`FACTION_STATUS::${selectedStatus}`);
+
+            const isClosed = selectedStatus === 'CLOSED_RECRUITMENT' || selectedStatus === 'CLOSED_INVITATION';
+            const visibilityNote = isClosed
+                ? 'Your faction is now hidden from the public "Apply to a Faction" dropdown.'
+                : 'Your faction is now visible in the public "Apply to a Faction" dropdown.';
+
+            await interaction.update({ content: `✅ **${factionName}** status set to ${statusLabels[selectedStatus]}.\n${visibilityNote}`, components: [] });
+        } catch (err) {
+            console.error(err);
+            await interaction.update({ content: '❌ System error updating faction status.', components: [] });
         }
         return;
     }
