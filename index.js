@@ -1361,7 +1361,6 @@ client.on('interactionCreate', async (interaction) => {
         const targetMember = interaction.options.getUser('member');
         const amount = interaction.options.getNumber('amount');
         const proofAttachment = interaction.options.getAttachment('proof');
-        const referenceNumber = interaction.options.getString('reference') || 'None';
         const dateInput = interaction.options.getString('date');
 
         if (amount <= 0) {
@@ -1383,7 +1382,6 @@ client.on('interactionCreate', async (interaction) => {
                     { name: 'Member ID', value: targetMember.id, inline: true },
                     { name: 'Amount (PHP)', value: `${amount}`, inline: true },
                     { name: 'Date', value: entryDate, inline: true },
-                    { name: 'Reference Number', value: referenceNumber, inline: true },
                     { name: 'Logged By', value: `<@${interaction.user.id}>`, inline: true }
                 )
                 .setImage(proofAttachment.url)
@@ -1436,15 +1434,13 @@ client.on('interactionCreate', async (interaction) => {
                 const memberIdField = fields.find(f => f.name === 'Member ID');
                 const amountField = fields.find(f => f.name === 'Amount (PHP)');
                 const dateField = fields.find(f => f.name === 'Date');
-                const referenceField = fields.find(f => f.name === 'Reference Number');
 
                 if (!memberIdField || !amountField) continue;
 
                 entries.push({
                     memberId: memberIdField.value,
                     amount: parseFloat(amountField.value) || 0,
-                    date: dateField ? dateField.value : 'Unknown',
-                    reference: referenceField ? referenceField.value : 'None'
+                    date: dateField ? dateField.value : 'Unknown'
                 });
             }
 
@@ -1457,7 +1453,7 @@ client.on('interactionCreate', async (interaction) => {
                 const total = memberEntries.reduce((sum, r) => sum + r.amount, 0);
                 const historyLines = memberEntries
                     .sort((a, b) => a.date.localeCompare(b.date))
-                    .map(r => `• ₱${r.amount} — ${r.date} (Ref: ${r.reference})`)
+                    .map(r => `• ₱${r.amount} — ${r.date}`)
                     .join('\n');
 
                 const summaryEmbed = new EmbedBuilder()
