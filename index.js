@@ -143,8 +143,8 @@ client.on('interactionCreate', async (interaction) => {
             .setTitle('📋 Application Center')
             .setDescription(
                 `⚠️ **Please read before applying:**\n` +
-                `Please rename your Discord display name to match your exact in-game name.\n` +
-                `Our bot requires your Discord name and in-game name to be the same in order to properly recognize and sync your account. This is required for features such as player tracking, rewards, achievements, and other server systems.\n\n` +
+                `Please rename your Discord display name to match your exact in-game name.\n\n` +
+                `Our Patient Zero bot requires your Discord name and in-game name to be the same in order to properly recognize and sync your account. This is required for features such as player tracking, rewards, achievements, and other server systems.\n\n` +
                 `Once approved use \`/link\` command to link your In-Game Character to your Discord to fully utilize the shop. Failure to do so might affect your privileges for other features of our economy.\n\n` +
                 `Select the type of whitelist application form you wish to open below.` +
                 (CONFIG.BETA_WHITELIST_ENABLED ? '' : '\n\n🔒 *Beta Test Whitelisting is currently closed.*')
@@ -887,7 +887,7 @@ client.on('interactionCreate', async (interaction) => {
             );
 
             await ticketChannel.send({
-                content: `🔔 **Attention <@&${CONFIG.WHITELIST_STAFF_ROLE_ID}>:** New ${isBeta ? 'Beta' : 'Standard'} Whitelist application submitted by <@${member.id}>.`,
+                content: `🔔 **Attention <@&${CONFIG.WHITELIST_STAFF_ROLE_ID}>:** New ${isBeta ? 'Beta' : 'Standard'} Whitelist application submitted by <@${member.id}>.\n\n📌 <@${member.id}>, please wait for **Hamlet** or **Yuuko** to review your application. Thank you for your patience!`,
                 embeds: [dataEmbed],
                 components: [actionRow]
             });
