@@ -145,7 +145,7 @@ client.on('interactionCreate', async (interaction) => {
                 `⚠️ **Please read before applying:**\n` +
                 `Please rename your Discord display name to match your exact in-game name.\n` +
                 `Our bot requires your Discord name and in-game name to be the same in order to properly recognize and sync your account. This is required for features such as player tracking, rewards, achievements, and other server systems.\n\n` +
-                `Also use \`/link\` command to link your In-Game Character to your Discord to fully utilize the shop. Failure to do so might affect your privileges for other features of our economy.\n\n` +
+                `Once approved use \`/link\` command to link your In-Game Character to your Discord to fully utilize the shop. Failure to do so might affect your privileges for other features of our economy.\n\n` +
                 `Select the type of whitelist application form you wish to open below.` +
                 (CONFIG.BETA_WHITELIST_ENABLED ? '' : '\n\n🔒 *Beta Test Whitelisting is currently closed.*')
             )
@@ -833,8 +833,8 @@ client.on('interactionCreate', async (interaction) => {
         const modal = new ModalBuilder().setCustomId(isBeta ? 'wl_form_beta' : 'wl_form_standard').setTitle('Identity Whitelist Form');
 
         const steamIdInput = new TextInputBuilder().setCustomId('wl_steamid').setLabel('SteamID').setStyle(TextInputStyle.Short).setRequired(true);
-        const usernameInput = new TextInputBuilder().setCustomId('wl_username').setLabel('Username').setStyle(TextInputStyle.Short).setRequired(true);
-        const passwordInput = new TextInputBuilder().setCustomId('wl_password').setLabel('Password').setStyle(TextInputStyle.Short).setRequired(true);
+        const usernameInput = new TextInputBuilder().setCustomId('wl_username').setLabel('In-Game Username (must match Discord)').setStyle(TextInputStyle.Short).setPlaceholder('Must be exactly the same as your Discord name').setRequired(true);
+        const passwordInput = new TextInputBuilder().setCustomId('wl_password').setLabel('Server Password (Once Bitten only!)').setStyle(TextInputStyle.Short).setPlaceholder('Do NOT reuse your Steam/social media password').setRequired(true);
 
         modal.addComponents(
             new ActionRowBuilder().addComponents(steamIdInput),
@@ -886,7 +886,23 @@ client.on('interactionCreate', async (interaction) => {
                 new ButtonBuilder().setCustomId('wl_close_channel').setLabel('🔒 Close Ticket').setStyle(ButtonStyle.Secondary)
             );
 
-            await ticketChannel.send({ embeds: [dataEmbed], components: [actionRow] });
+            await ticketChannel.send({
+                content: `🔔 **Attention <@&${CONFIG.WHITELIST_STAFF_ROLE_ID}>:** New ${isBeta ? 'Beta' : 'Standard'} Whitelist application submitted by <@${member.id}>.`,
+                embeds: [dataEmbed],
+                components: [actionRow]
+            });
+
+            // DM every staff member holding the Whitelist Staff role
+            try {
+                await guild.members.fetch();
+                const staffMembers = guild.members.cache.filter(m => m.roles.cache.has(CONFIG.WHITELIST_STAFF_ROLE_ID));
+                for (const [, staffMember] of staffMembers) {
+                    await staffMember.send(`🔔 **New ${isBeta ? 'Beta' : 'Standard'} Whitelist Application**\nSubmitted by: ${member.tag}\nTicket: ${ticketChannel}`).catch(() => { });
+                }
+            } catch (dmErr) {
+                console.warn('⚠️ Could not DM staff role members:', dmErr);
+            }
+
             await interaction.editReply({ content: `✅ Application sent! Channel opened: ${ticketChannel}` });
         } catch (err) {
             console.error(err);
