@@ -36,7 +36,10 @@ const CONFIG = {
     FACTION_LOG_CHANNEL_ID: process.env.FACTION_LOG_CHANNEL_ID || "1534292895643861073",
     FACTION_JOIN_TICKETS_CATEGORY_ID: process.env.FACTION_JOIN_TICKETS_CATEGORY_ID || "1534277229083885698",
     FACTION_LIST_FORUM_ID: process.env.FACTION_LIST_FORUM_ID || "1534357448800862320",
-    FACTION_LEADERS_HUB_CHANNEL_ID: process.env.FACTION_LEADERS_HUB_CHANNEL_ID || "1536548935848562779"
+    FACTION_LEADERS_HUB_CHANNEL_ID: process.env.FACTION_LEADERS_HUB_CHANNEL_ID || "1536548935848562779",
+
+    DONATION_STAFF_ROLE_ID: process.env.DONATION_STAFF_ROLE_ID || "1532932367461781584",
+    DONATION_LOG_CHANNEL_ID: process.env.DONATION_LOG_CHANNEL_ID || "1537290315839569980"
 };
 
 // Dummy web server for Render
@@ -1346,6 +1349,148 @@ client.on('interactionCreate', async (interaction) => {
         } catch (err) {
             console.error(err);
             await interaction.update({ content: '❌ System error updating faction status.', components: [] });
+        }
+        return;
+    }
+
+    // --- AD. LOG DONATION SLASH COMMAND (STAFF ONLY) ---
+    if (interaction.isChatInputCommand() && interaction.commandName === 'log-donation') {
+        const isStaff = interaction.member.roles.cache.has(CONFIG.DONATION_STAFF_ROLE_ID) || interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isStaff) return interaction.reply({ content: '❌ Only authorized Staff can log entries.', ephemeral: true });
+
+        const targetMember = interaction.options.getUser('member');
+        const amount = interaction.options.getNumber('amount');
+        const proofAttachment = interaction.options.getAttachment('proof');
+        const referenceNumber = interaction.options.getString('reference') || 'None';
+        const dateInput = interaction.options.getString('date');
+
+        if (amount <= 0) {
+            return interaction.reply({ content: '❌ Amount must be greater than 0.', ephemeral: true });
+        }
+
+        const entryDate = dateInput || new Date().toISOString().split('T')[0];
+
+        try {
+            const logChannel = await interaction.guild.channels.fetch(CONFIG.DONATION_LOG_CHANNEL_ID).catch(() => null);
+            if (!logChannel) {
+                return interaction.reply({ content: '❌ Log channel not found. Check CONFIG.DONATION_LOG_CHANNEL_ID.', ephemeral: true });
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('📝 Entry Logged')
+                .addFields(
+                    { name: 'Member', value: `<@${targetMember.id}>`, inline: true },
+                    { name: 'Member ID', value: targetMember.id, inline: true },
+                    { name: 'Amount (PHP)', value: `${amount}`, inline: true },
+                    { name: 'Date', value: entryDate, inline: true },
+                    { name: 'Reference Number', value: referenceNumber, inline: true },
+                    { name: 'Logged By', value: `<@${interaction.user.id}>`, inline: true }
+                )
+                .setImage(proofAttachment.url)
+                .setColor(0x2ECC71)
+                .setTimestamp();
+
+            await logChannel.send({ embeds: [embed] });
+            await interaction.reply({ content: `✅ Logged ₱${amount} entry for <@${targetMember.id}> on ${entryDate}.`, ephemeral: true });
+        } catch (err) {
+            console.error(err);
+            await interaction.reply({ content: '❌ Error logging entry.', ephemeral: true });
+        }
+        return;
+    }
+
+    // --- AE. DONATION SUMMARY SLASH COMMAND (STAFF ONLY) ---
+    if (interaction.isChatInputCommand() && interaction.commandName === 'donation-summary') {
+        const isStaff = interaction.member.roles.cache.has(CONFIG.DONATION_STAFF_ROLE_ID) || interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isStaff) return interaction.reply({ content: '❌ Only authorized Staff can view summaries.', ephemeral: true });
+
+        await interaction.deferReply({ ephemeral: true });
+
+        try {
+            const logChannel = await interaction.guild.channels.fetch(CONFIG.DONATION_LOG_CHANNEL_ID).catch(() => null);
+            if (!logChannel) {
+                return interaction.editReply({ content: '❌ Log channel not found.' });
+            }
+
+            const filterMember = interaction.options.getUser('member');
+
+            let allMessages = [];
+            let lastId = null;
+            while (true) {
+                const fetchOptions = { limit: 100 };
+                if (lastId) fetchOptions.before = lastId;
+                const batch = await logChannel.messages.fetch(fetchOptions);
+                if (batch.size === 0) break;
+                allMessages = allMessages.concat(Array.from(batch.values()));
+                lastId = batch.last().id;
+                if (batch.size < 100) break;
+            }
+
+            const entries = [];
+            for (const msg of allMessages) {
+                if (!msg.embeds || msg.embeds.length === 0) continue;
+                const embed = msg.embeds[0];
+                if (!embed.title || embed.title !== '📝 Entry Logged') continue;
+
+                const fields = embed.fields || [];
+                const memberIdField = fields.find(f => f.name === 'Member ID');
+                const amountField = fields.find(f => f.name === 'Amount (PHP)');
+                const dateField = fields.find(f => f.name === 'Date');
+                const referenceField = fields.find(f => f.name === 'Reference Number');
+
+                if (!memberIdField || !amountField) continue;
+
+                entries.push({
+                    memberId: memberIdField.value,
+                    amount: parseFloat(amountField.value) || 0,
+                    date: dateField ? dateField.value : 'Unknown',
+                    reference: referenceField ? referenceField.value : 'None'
+                });
+            }
+
+            if (filterMember) {
+                const memberEntries = entries.filter(r => r.memberId === filterMember.id);
+                if (memberEntries.length === 0) {
+                    return interaction.editReply({ content: `📊 <@${filterMember.id}> has no logged entries.` });
+                }
+
+                const total = memberEntries.reduce((sum, r) => sum + r.amount, 0);
+                const historyLines = memberEntries
+                    .sort((a, b) => a.date.localeCompare(b.date))
+                    .map(r => `• ₱${r.amount} — ${r.date} (Ref: ${r.reference})`)
+                    .join('\n');
+
+                const summaryEmbed = new EmbedBuilder()
+                    .setTitle(`📊 Summary — ${filterMember.username}`)
+                    .setDescription(`**Total:** ₱${total}\n**Entries:** ${memberEntries.length}\n\n**History:**\n${historyLines}`)
+                    .setColor(0x3498DB);
+
+                return interaction.editReply({ embeds: [summaryEmbed] });
+            }
+
+            const totals = {};
+            for (const r of entries) {
+                if (!totals[r.memberId]) totals[r.memberId] = 0;
+                totals[r.memberId] += r.amount;
+            }
+
+            const grandTotal = entries.reduce((sum, r) => sum + r.amount, 0);
+            const sortedMembers = Object.entries(totals).sort((a, b) => b[1] - a[1]);
+
+            const breakdownLines = sortedMembers
+                .slice(0, 20)
+                .map(([memberId, amount]) => `<@${memberId}> — ₱${amount}`)
+                .join('\n') || 'No entries logged yet.';
+
+            const summaryEmbed = new EmbedBuilder()
+                .setTitle('📊 Summary — All Members')
+                .setDescription(`**Grand Total:** ₱${grandTotal}\n**Total Entries:** ${entries.length}\n**Unique Members:** ${sortedMembers.length}\n\n**Top Entries:**\n${breakdownLines}`)
+                .setColor(0x3498DB);
+
+            return interaction.editReply({ embeds: [summaryEmbed] });
+        } catch (err) {
+            console.error(err);
+            await interaction.editReply({ content: '❌ Error generating summary.' });
         }
         return;
     }
