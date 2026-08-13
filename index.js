@@ -1397,6 +1397,50 @@ client.on('interactionCreate', async (interaction) => {
         return;
     }
 
+    // --- AD-2. LOG EXPENSE SLASH COMMAND (STAFF ONLY) ---
+    if (interaction.isChatInputCommand() && interaction.commandName === 'log-expense') {
+        const isStaff = interaction.member.roles.cache.has(CONFIG.DONATION_STAFF_ROLE_ID) || interaction.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (!isStaff) return interaction.reply({ content: '❌ Only authorized Staff can log entries.', ephemeral: true });
+
+        const amount = interaction.options.getNumber('amount');
+        const note = interaction.options.getString('note');
+        const proofAttachment = interaction.options.getAttachment('proof');
+        const dateInput = interaction.options.getString('date');
+
+        if (amount <= 0) {
+            return interaction.reply({ content: '❌ Amount must be greater than 0.', ephemeral: true });
+        }
+
+        const entryDate = dateInput || new Date().toISOString().split('T')[0];
+
+        try {
+            const logChannel = await interaction.guild.channels.fetch(CONFIG.DONATION_LOG_CHANNEL_ID).catch(() => null);
+            if (!logChannel) {
+                return interaction.reply({ content: '❌ Log channel not found. Check CONFIG.DONATION_LOG_CHANNEL_ID.', ephemeral: true });
+            }
+
+            const embed = new EmbedBuilder()
+                .setTitle('💸 Expense Logged')
+                .addFields(
+                    { name: 'Amount (PHP)', value: `${amount}`, inline: true },
+                    { name: 'Date', value: entryDate, inline: true },
+                    { name: 'Logged By', value: `<@${interaction.user.id}>`, inline: true },
+                    { name: 'Used For', value: note, inline: false }
+                )
+                .setColor(0xE74C3C)
+                .setTimestamp();
+
+            if (proofAttachment) embed.setImage(proofAttachment.url);
+
+            await logChannel.send({ embeds: [embed] });
+            await interaction.reply({ content: `✅ Logged ₱${amount} expense — deducted from the donation total.`, ephemeral: true });
+        } catch (err) {
+            console.error(err);
+            await interaction.reply({ content: '❌ Error logging entry.', ephemeral: true });
+        }
+        return;
+    }
+
     // --- AE. DONATION SUMMARY SLASH COMMAND (STAFF ONLY) ---
     if (interaction.isChatInputCommand() && interaction.commandName === 'donation-summary') {
         const isStaff = interaction.member.roles.cache.has(CONFIG.DONATION_STAFF_ROLE_ID) || interaction.member.permissions.has(PermissionFlagsBits.Administrator);
@@ -1425,24 +1469,40 @@ client.on('interactionCreate', async (interaction) => {
             }
 
             const entries = [];
+            const expenses = [];
             for (const msg of allMessages) {
                 if (!msg.embeds || msg.embeds.length === 0) continue;
                 const embed = msg.embeds[0];
-                if (!embed.title || embed.title !== '📝 Entry Logged') continue;
-
                 const fields = embed.fields || [];
-                const memberIdField = fields.find(f => f.name === 'Member ID');
-                const amountField = fields.find(f => f.name === 'Amount (PHP)');
-                const dateField = fields.find(f => f.name === 'Date');
 
-                if (!memberIdField || !amountField) continue;
+                if (embed.title === '📝 Entry Logged') {
+                    const memberIdField = fields.find(f => f.name === 'Member ID');
+                    const amountField = fields.find(f => f.name === 'Amount (PHP)');
+                    const dateField = fields.find(f => f.name === 'Date');
 
-                entries.push({
-                    memberId: memberIdField.value,
-                    amount: parseFloat(amountField.value) || 0,
-                    date: dateField ? dateField.value : 'Unknown'
-                });
+                    if (!memberIdField || !amountField) continue;
+
+                    entries.push({
+                        memberId: memberIdField.value,
+                        amount: parseFloat(amountField.value) || 0,
+                        date: dateField ? dateField.value : 'Unknown'
+                    });
+                } else if (embed.title === '💸 Expense Logged') {
+                    const amountField = fields.find(f => f.name === 'Amount (PHP)');
+                    const dateField = fields.find(f => f.name === 'Date');
+                    const noteField = fields.find(f => f.name === 'Used For');
+
+                    if (!amountField) continue;
+
+                    expenses.push({
+                        amount: parseFloat(amountField.value) || 0,
+                        date: dateField ? dateField.value : 'Unknown',
+                        note: noteField ? noteField.value : 'No note provided'
+                    });
+                }
             }
+
+            const totalExpenses = expenses.reduce((sum, e) => sum + e.amount, 0);
 
             if (filterMember) {
                 const memberEntries = entries.filter(r => r.memberId === filterMember.id);
@@ -1458,7 +1518,7 @@ client.on('interactionCreate', async (interaction) => {
 
                 const summaryEmbed = new EmbedBuilder()
                     .setTitle(`📊 Summary — ${filterMember.username}`)
-                    .setDescription(`**Total:** ₱${total}\n**Entries:** ${memberEntries.length}\n\n**History:**\n${historyLines}`)
+                    .setDescription(`**Total Donated:** ₱${total}\n**Entries:** ${memberEntries.length}\n\n**History:**\n${historyLines}\n\n*Note: Expenses are deducted from the overall pool total, not per-member.*`)
                     .setColor(0x3498DB);
 
                 return interaction.editReply({ embeds: [summaryEmbed] });
@@ -1470,7 +1530,8 @@ client.on('interactionCreate', async (interaction) => {
                 totals[r.memberId] += r.amount;
             }
 
-            const grandTotal = entries.reduce((sum, r) => sum + r.amount, 0);
+            const grandDonated = entries.reduce((sum, r) => sum + r.amount, 0);
+            const netTotal = grandDonated - totalExpenses;
             const sortedMembers = Object.entries(totals).sort((a, b) => b[1] - a[1]);
 
             const breakdownLines = sortedMembers
@@ -1478,9 +1539,22 @@ client.on('interactionCreate', async (interaction) => {
                 .map(([memberId, amount]) => `<@${memberId}> — ₱${amount}`)
                 .join('\n') || 'No entries logged yet.';
 
+            const recentExpenseLines = expenses
+                .sort((a, b) => b.date.localeCompare(a.date))
+                .slice(0, 10)
+                .map(e => `• ₱${e.amount} — ${e.date} — ${e.note}`)
+                .join('\n') || 'No expenses logged yet.';
+
             const summaryEmbed = new EmbedBuilder()
                 .setTitle('📊 Summary — All Members')
-                .setDescription(`**Grand Total:** ₱${grandTotal}\n**Total Entries:** ${entries.length}\n**Unique Members:** ${sortedMembers.length}\n\n**Top Entries:**\n${breakdownLines}`)
+                .setDescription(
+                    `**Total Donated:** ₱${grandDonated}\n` +
+                    `**Total Expenses:** ₱${totalExpenses}\n` +
+                    `**Net Available:** ₱${netTotal}\n` +
+                    `**Total Entries:** ${entries.length}\n**Unique Members:** ${sortedMembers.length}\n\n` +
+                    `**Top Donors:**\n${breakdownLines}\n\n` +
+                    `**Recent Expenses:**\n${recentExpenseLines}`
+                )
                 .setColor(0x3498DB);
 
             return interaction.editReply({ embeds: [summaryEmbed] });
