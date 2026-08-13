@@ -46,6 +46,15 @@ const commands = [
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
   new SlashCommandBuilder()
+    .setName('log-expense')
+    .setDescription('Staff: log money used from the donation pool, deducted from the total.')
+    .addNumberOption(option => option.setName('amount').setDescription('Amount used (PHP)').setRequired(true))
+    .addStringOption(option => option.setName('note').setDescription('What the money was used for').setRequired(true))
+    .addAttachmentOption(option => option.setName('proof').setDescription('Screenshot or receipt of the expense').setRequired(false))
+    .addStringOption(option => option.setName('date').setDescription('Date (e.g. 2026-08-13). Defaults to today.').setRequired(false))
+    .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
+
+  new SlashCommandBuilder()
     .setName('donation-summary')
     .setDescription('Staff: view logged totals, or a specific member\'s history.')
     .addUserOption(option => option.setName('member').setDescription('View totals for a specific member only').setRequired(false))
@@ -61,7 +70,7 @@ const rest = new REST({ version: '10' }).setToken(process.env.DISCORD_TOKEN);
       Routes.applicationCommands("1532893336921182339"),
       { body: commands }
     );
-    console.log('✅ All 9 slash commands registered successfully!');
+    console.log('✅ All 10 slash commands registered successfully!');
   } catch (error) {
     console.error('Registration Failure:', error);
   }
