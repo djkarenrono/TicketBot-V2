@@ -42,7 +42,6 @@ const commands = [
     .addUserOption(option => option.setName('member').setDescription('The member the donation is from').setRequired(true))
     .addNumberOption(option => option.setName('amount').setDescription('Amount (PHP)').setRequired(true))
     .addAttachmentOption(option => option.setName('proof').setDescription('Screenshot or receipt of payment').setRequired(true))
-    .addStringOption(option => option.setName('reference').setDescription('Reference number').setRequired(false))
     .addStringOption(option => option.setName('date').setDescription('Date (e.g. 2026-08-13). Defaults to today.').setRequired(false))
     .setDefaultMemberPermissions(PermissionFlagsBits.Administrator),
 
