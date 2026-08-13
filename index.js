@@ -25,6 +25,7 @@ const CONFIG = {
     WHITELIST_CATEGORY_ID: process.env.WHITELIST_CATEGORY_ID || "1532903192596058243",
     WHITELIST_LOG_CHANNEL_ID: process.env.WHITELIST_LOG_CHANNEL_ID || "1533789189412229291",
     BETA_TESTER_ROLE_ID: process.env.BETA_TESTER_ROLE_ID || "1533724387625402479",
+    BETA_WHITELIST_ENABLED: false, // 👈 flip this to false to disable Beta Whitelisting
 
     SUPPORT_STAFF_ROLE_ID: process.env.SUPPORT_STAFF_ROLE_ID || "1532932367461781584",
     SUPPORT_CATEGORY_ID: process.env.SUPPORT_CATEGORY_ID || "1259533239689810053",
@@ -35,7 +36,8 @@ const CONFIG = {
     FACTION_LOG_CHANNEL_ID: process.env.FACTION_LOG_CHANNEL_ID || "1534292895643861073",
     FACTION_JOIN_TICKETS_CATEGORY_ID: process.env.FACTION_JOIN_TICKETS_CATEGORY_ID || "1534277229083885698",
     FACTION_LIST_FORUM_ID: process.env.FACTION_LIST_FORUM_ID || "1534357448800862320",
-    FACTION_LEADERS_HUB_CHANNEL_ID: process.env.FACTION_LEADERS_HUB_CHANNEL_ID || "1536548935848562779"};
+    FACTION_LEADERS_HUB_CHANNEL_ID: process.env.FACTION_LEADERS_HUB_CHANNEL_ID || "1536548935848562779"
+};
 
 // Dummy web server for Render
 http.createServer((req, res) => {
@@ -125,10 +127,17 @@ client.on('interactionCreate', async (interaction) => {
 
     // --- B. WHITELIST SELECTION SLASH COMMAND ---
     if (interaction.isChatInputCommand() && interaction.commandName === 'setup-whitelist') {
-        const row = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId('open_standard_whitelist').setLabel('📝 Apply for Whitelisting').setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId('open_beta_whitelist').setLabel('🧪 Beta Test Whitelist').setStyle(ButtonStyle.Primary)
-        );
+        const buttons = [
+            new ButtonBuilder().setCustomId('open_standard_whitelist').setLabel('📝 Apply for Whitelisting').setStyle(ButtonStyle.Success)
+        ];
+
+        if (CONFIG.BETA_WHITELIST_ENABLED) {
+            buttons.push(
+                new ButtonBuilder().setCustomId('open_beta_whitelist').setLabel('🧪 Beta Test Whitelist').setStyle(ButtonStyle.Primary)
+            );
+        }
+
+        const row = new ActionRowBuilder().addComponents(buttons);
 
         const embed = new EmbedBuilder()
             .setTitle('📋 Application Center')
@@ -781,6 +790,11 @@ client.on('interactionCreate', async (interaction) => {
     // --- N. WHITELIST AGREEMENT LOGIC ENGINES ---
     if (interaction.isButton() && (interaction.customId === 'open_standard_whitelist' || interaction.customId === 'open_beta_whitelist')) {
         const isBeta = interaction.customId === 'open_beta_whitelist';
+
+        if (isBeta && !CONFIG.BETA_WHITELIST_ENABLED) {
+            return interaction.reply({ content: '🔒 Beta Test Whitelisting is currently closed. Please check back later.', ephemeral: true });
+        }
+
         const agreementEmbed = new EmbedBuilder();
 
         if (isBeta) {
