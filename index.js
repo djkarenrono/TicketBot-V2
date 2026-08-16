@@ -25,6 +25,7 @@ const CONFIG = {
     WHITELIST_CATEGORY_ID: process.env.WHITELIST_CATEGORY_ID || "1532903192596058243",
     WHITELIST_LOG_CHANNEL_ID: process.env.WHITELIST_LOG_CHANNEL_ID || "1533789189412229291",
     BETA_TESTER_ROLE_ID: process.env.BETA_TESTER_ROLE_ID || "1533724387625402479",
+    WHITELIST_REVIEWER_USER_ID: process.env.WHITELIST_REVIEWER_USER_ID || "747773931347247137",
     BETA_WHITELIST_ENABLED: false, // 👈 flip this to false to disable Beta Whitelisting
 
     SUPPORT_STAFF_ROLE_ID: process.env.SUPPORT_STAFF_ROLE_ID || "1532932367461781584",
@@ -39,7 +40,7 @@ const CONFIG = {
     FACTION_LEADERS_HUB_CHANNEL_ID: process.env.FACTION_LEADERS_HUB_CHANNEL_ID || "1536548935848562779",
 
     DONATION_STAFF_ROLE_ID: process.env.DONATION_STAFF_ROLE_ID || "1532932367461781584",
-    DONATION_LOG_CHANNEL_ID: process.env.DONATION_LOG_CHANNEL_ID || "1537290315839569980"
+    DONATION_LOG_CHANNEL_ID: process.env.DONATION_LOG_CHANNEL_ID || "1537290315839569980",
 };
 
 // Dummy web server for Render
@@ -890,20 +891,19 @@ client.on('interactionCreate', async (interaction) => {
             );
 
             await ticketChannel.send({
-                content: `🔔 **Attention <@&${CONFIG.WHITELIST_STAFF_ROLE_ID}>:** New ${isBeta ? 'Beta' : 'Standard'} Whitelist application submitted by <@${member.id}>.\n\n📌 <@${member.id}>, please wait for **Hamlet** or **Yuuko** to review your application. Thank you for your patience!`,
+                content: `🔔 <@${CONFIG.WHITELIST_REVIEWER_USER_ID}>, a new ${isBeta ? 'Beta' : 'Standard'} Whitelist application has been submitted by <@${member.id}>.`,
                 embeds: [dataEmbed],
                 components: [actionRow]
             });
 
-            // DM every staff member holding the Whitelist Staff role
+            // DM Hamlet directly about the new application
             try {
-                await guild.members.fetch();
-                const staffMembers = guild.members.cache.filter(m => m.roles.cache.has(CONFIG.WHITELIST_STAFF_ROLE_ID));
-                for (const [, staffMember] of staffMembers) {
-                    await staffMember.send(`🔔 **New ${isBeta ? 'Beta' : 'Standard'} Whitelist Application**\nSubmitted by: ${member.tag}\nTicket: ${ticketChannel}`).catch(() => { });
+                const reviewer = await guild.members.fetch(CONFIG.WHITELIST_REVIEWER_USER_ID).catch(() => null);
+                if (reviewer) {
+                    await reviewer.send(`🔔 **New ${isBeta ? 'Beta' : 'Standard'} Whitelist Application**\nSubmitted by: ${member.tag}\nTicket: ${ticketChannel}`).catch(() => { });
                 }
             } catch (dmErr) {
-                console.warn('⚠️ Could not DM staff role members:', dmErr);
+                console.warn('⚠️ Could not DM the whitelist reviewer:', dmErr);
             }
 
             await interaction.editReply({ content: `✅ Application sent! Channel opened: ${ticketChannel}` });
