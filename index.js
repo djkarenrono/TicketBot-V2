@@ -74,14 +74,16 @@ client.once('ready', () => {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
-    // --- BROADCAST STAFF ANNOUNCEMENTS TO ALL FACTION TEXT CHANNELS ---
-    const BROADCAST_SOURCE_CHANNEL_IDS = [
+    // --- BROADCAST STAFF ANNOUNCEMENTS ---
+    const FACTION_BROADCAST_SOURCE_CHANNEL_IDS = [
         "1488348139818713239",
         "1488348836375171133",
         "1538579320472211587"
     ];
+    const SURVIVOR_DESTINATION_CHANNEL_ID = "1486449982138618026";
+    const SURVIVOR_ROLE_ID = "1259408757033664512";
 
-    if (BROADCAST_SOURCE_CHANNEL_IDS.includes(message.channel.id)) {
+    if (FACTION_BROADCAST_SOURCE_CHANNEL_IDS.includes(message.channel.id)) {
         const isStaff = message.member.roles.cache.has(CONFIG.FACTION_STAFF_ROLE_ID) || message.member.permissions.has(PermissionFlagsBits.Administrator);
         if (isStaff) {
             try {
@@ -95,6 +97,7 @@ client.on('messageCreate', async (message) => {
                 const factionCategories = guild.channels.cache.filter(c => c.type === ChannelType.GuildCategory && c.name.startsWith('FACTION: '));
                 const attachmentUrls = message.attachments.map(a => a.url);
 
+                // Forward to every faction's own text channel, pinging that faction's Member role
                 for (const [, category] of factionCategories) {
                     const factionTextChannel = guild.channels.cache.find(c => c.parentId === category.id && c.type === ChannelType.GuildText);
                     if (!factionTextChannel) continue;
@@ -102,16 +105,25 @@ client.on('messageCreate', async (message) => {
                     const factionName = category.name.replace('FACTION: ', '');
                     const leaderRole = serverRoles.find(r => r.name && r.name.toLowerCase() === `faction leader_${factionName.toLowerCase()}`);
 
-                    let memberRolePing = '';
+                    let rolePing = '';
                     if (leaderRole) {
                         const memberRole = serverRoles.find(r => r.name && r.name.startsWith('[') && r.name.endsWith('] Member') && r.color === leaderRole.color);
-                        if (memberRole) memberRolePing = `<@&${memberRole.id}> `;
+                        if (memberRole) rolePing = `<@&${memberRole.id}> `;
                     }
 
                     await factionTextChannel.send({
-                        content: `${memberRolePing}📢 **Staff Announcement**\n${message.content}`,
+                        content: `${rolePing}📢 **Staff Announcement** — Posted by ${message.author}\n${message.content}`,
                         files: attachmentUrls
                     }).catch(err => console.warn(`⚠️ Could not forward announcement to ${factionTextChannel.name}:`, err.message));
+                }
+
+                // Also forward to the Survivor destination channel, pinging only the Survivor role
+                const survivorChannel = await guild.channels.fetch(SURVIVOR_DESTINATION_CHANNEL_ID).catch(() => null);
+                if (survivorChannel) {
+                    await survivorChannel.send({
+                        content: `<@&${SURVIVOR_ROLE_ID}> 📢 **Staff Announcement** — Posted by ${message.author}\n${message.content}`,
+                        files: attachmentUrls
+                    }).catch(err => console.warn('⚠️ Could not forward announcement to Survivor channel:', err.message));
                 }
             } catch (err) {
                 console.error('Error broadcasting staff announcement:', err);
