@@ -112,7 +112,7 @@ client.on('messageCreate', async (message) => {
                     }
 
                     await factionTextChannel.send({
-                        content: `${rolePing}📢 **Staff Announcement** — Posted by ${message.author} in #${message.channel.name}\n${message.content}`,
+                        content: `${rolePing}**OB Management Announcement** — Posted by ${message.author} in #${message.channel.name}\n${message.content}`,
                         files: attachmentUrls
                     }).catch(err => console.warn(`⚠️ Could not forward announcement to ${factionTextChannel.name}:`, err.message));
                 }
@@ -121,7 +121,7 @@ client.on('messageCreate', async (message) => {
                 const survivorChannel = await guild.channels.fetch(SURVIVOR_DESTINATION_CHANNEL_ID).catch(() => null);
                 if (survivorChannel) {
                     await survivorChannel.send({
-                        content: `<@&${SURVIVOR_ROLE_ID}> 📢 **Staff Announcement** — Posted by ${message.author} in #${message.channel.name}\n${message.content}`,
+                        content: `<@&${SURVIVOR_ROLE_ID}> **OB Management Announcement** — Posted by ${message.author} in #${message.channel.name}\n${message.content}`,
                         files: attachmentUrls
                     }).catch(err => console.warn('⚠️ Could not forward announcement to Survivor channel:', err.message));
                 }
