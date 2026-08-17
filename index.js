@@ -74,6 +74,52 @@ client.once('ready', () => {
 client.on('messageCreate', async (message) => {
     if (message.author.bot || !message.guild) return;
 
+    // --- BROADCAST STAFF ANNOUNCEMENTS TO ALL FACTION TEXT CHANNELS ---
+    const BROADCAST_SOURCE_CHANNEL_IDS = [
+        "1488348139818713239",
+        "1488348836375171133",
+        "1538579320472211587"
+    ];
+
+    if (BROADCAST_SOURCE_CHANNEL_IDS.includes(message.channel.id)) {
+        const isStaff = message.member.roles.cache.has(CONFIG.FACTION_STAFF_ROLE_ID) || message.member.permissions.has(PermissionFlagsBits.Administrator);
+        if (isStaff) {
+            try {
+                const guild = message.guild;
+                let serverRoles = guild.roles.cache;
+                if (!serverRoles || serverRoles.size <= 1) {
+                    const fetchedRoles = await guild.roles.fetch().catch(() => null);
+                    if (fetchedRoles) serverRoles = fetchedRoles.cache;
+                }
+
+                const factionCategories = guild.channels.cache.filter(c => c.type === ChannelType.GuildCategory && c.name.startsWith('FACTION: '));
+                const attachmentUrls = message.attachments.map(a => a.url);
+
+                for (const [, category] of factionCategories) {
+                    const factionTextChannel = guild.channels.cache.find(c => c.parentId === category.id && c.type === ChannelType.GuildText);
+                    if (!factionTextChannel) continue;
+
+                    const factionName = category.name.replace('FACTION: ', '');
+                    const leaderRole = serverRoles.find(r => r.name && r.name.toLowerCase() === `faction leader_${factionName.toLowerCase()}`);
+
+                    let memberRolePing = '';
+                    if (leaderRole) {
+                        const memberRole = serverRoles.find(r => r.name && r.name.startsWith('[') && r.name.endsWith('] Member') && r.color === leaderRole.color);
+                        if (memberRole) memberRolePing = `<@&${memberRole.id}> `;
+                    }
+
+                    await factionTextChannel.send({
+                        content: `${memberRolePing}📢 **Staff Announcement**\n${message.content}`,
+                        files: attachmentUrls
+                    }).catch(err => console.warn(`⚠️ Could not forward announcement to ${factionTextChannel.name}:`, err.message));
+                }
+            } catch (err) {
+                console.error('Error broadcasting staff announcement:', err);
+            }
+        }
+        return;
+    }
+
     if (message.content === '!setup-tickets') {
         if (!message.member.permissions.has(PermissionFlagsBits.Administrator)) return;
 
