@@ -27,6 +27,7 @@ const CONFIG = {
     BETA_TESTER_ROLE_ID: process.env.BETA_TESTER_ROLE_ID || "1533724387625402479",
     WHITELIST_REVIEWER_USER_ID: process.env.WHITELIST_REVIEWER_USER_ID || "747773931347247137",
     BETA_WHITELIST_ENABLED: false, // 👈 flip this to false to disable Beta Whitelisting
+    RULES_CHANNEL_ID: process.env.RULES_CHANNEL_ID || "1539457327927922718",
 
     SUPPORT_STAFF_ROLE_ID: process.env.SUPPORT_STAFF_ROLE_ID || "1532932367461781584",
     SUPPORT_CATEGORY_ID: process.env.SUPPORT_CATEGORY_ID || "1259533239689810053",
@@ -41,7 +42,41 @@ const CONFIG = {
 
     DONATION_STAFF_ROLE_ID: process.env.DONATION_STAFF_ROLE_ID || "1532932367461781584",
     DONATION_LOG_CHANNEL_ID: process.env.DONATION_LOG_CHANNEL_ID || "1537290315839569980",
+
 };
+
+// Checks if a user has reacted with ✅ to every rule message posted by Staff in the Rules channel
+async function hasReactedToAllRules(guild, userId) {
+    const rulesChannel = await guild.channels.fetch(CONFIG.RULES_CHANNEL_ID).catch(() => null);
+    if (!rulesChannel) return false;
+    let allMessages = [];
+    let lastId = null;
+    while (true) {
+        const fetchOptions = { limit: 100 };
+        if (lastId) fetchOptions.before = lastId;
+        const batch = await rulesChannel.messages.fetch(fetchOptions).catch(() => null);
+        if (!batch || batch.size === 0) break;
+        allMessages = allMessages.concat(Array.from(batch.values()));
+        lastId = batch.last().id;
+        if (batch.size < 100) break;
+    }
+    const ruleMessages = [];
+    for (const msg of allMessages) {
+        if (msg.author.bot) continue;
+        const authorMember = await guild.members.fetch(msg.author.id).catch(() => null);
+        if (authorMember && authorMember.roles.cache.has(CONFIG.FACTION_STAFF_ROLE_ID)) {
+            ruleMessages.push(msg);
+        }
+    }
+    if (ruleMessages.length === 0) return true;
+    for (const msg of ruleMessages) {
+        const reaction = msg.reactions.cache.find(r => r.emoji.name === '✅');
+        if (!reaction) return false;
+        const users = await reaction.users.fetch().catch(() => null);
+        if (!users || !users.has(userId)) return false;
+    }
+    return true;
+}
 
 // Dummy web server for Render
 http.createServer((req, res) => {
@@ -57,7 +92,8 @@ const client = new Client({
         GatewayIntentBits.GuildMessages,
         GatewayIntentBits.MessageContent,
         GatewayIntentBits.GuildMembers,
-        GatewayIntentBits.GuildPresences
+        GatewayIntentBits.GuildPresences,
+        GatewayIntentBits.GuildMessageReactions
     ]
 });
 
@@ -856,12 +892,21 @@ client.on('interactionCreate', async (interaction) => {
             return;
         }
     }
-    // --- N. WHITELIST AGREEMENT LOGIC ENGINES ---
+        // --- N. WHITELIST AGREEMENT LOGIC ENGINES ---
     if (interaction.isButton() && (interaction.customId === 'open_standard_whitelist' || interaction.customId === 'open_beta_whitelist')) {
         const isBeta = interaction.customId === 'open_beta_whitelist';
 
         if (isBeta && !CONFIG.BETA_WHITELIST_ENABLED) {
             return interaction.reply({ content: '🔒 Beta Test Whitelisting is currently closed. Please check back later.', ephemeral: true });
+        }
+
+        await interaction.deferReply({ ephemeral: true });
+
+        const hasReacted = await hasReactedToAllRules(interaction.guild, interaction.user.id);
+        if (!hasReacted) {
+            return interaction.editReply({
+                content: `❌ You must react with ✅ to **all** the rules posted in <#${CONFIG.RULES_CHANNEL_ID}> before you can apply. Please read and react to every rule message, then try again.`
+            });
         }
 
         const agreementEmbed = new EmbedBuilder();
@@ -881,7 +926,7 @@ client.on('interactionCreate', async (interaction) => {
             new ButtonBuilder().setCustomId('disagree_wl').setLabel('I Disagree').setStyle(ButtonStyle.Danger)
         );
 
-        await interaction.reply({ embeds: [agreementEmbed], components: [agreementRow], ephemeral: true });
+        await interaction.editReply({ embeds: [agreementEmbed], components: [agreementRow] });
         return;
     }
 
